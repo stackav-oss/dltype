@@ -3,7 +3,7 @@
 
 import pytest
 
-from kits.ml.typing import parsers
+from dltype._lib import _parser
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ from kits.ml.typing import parsers
 def test_parse_expression(
     expression: str, scope: dict[str, int], expected: int
 ) -> None:
-    assert parsers.expression_from_string(expression).evaluate(scope) == expected
+    assert _parser.expression_from_string(expression).evaluate(scope) == expected
 
 
 @pytest.mark.parametrize(
@@ -53,4 +53,4 @@ def test_parse_expression(
 )
 def test_parse_invalid_expression(expression: str, scope: dict[str, int]) -> None:
     with pytest.raises((SyntaxError, KeyError)):
-        parsers.expression_from_string(expression).evaluate(scope)
+        _parser.expression_from_string(expression).evaluate(scope)

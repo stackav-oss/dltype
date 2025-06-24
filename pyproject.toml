@@ -1,7 +1,7 @@
 [project]
 name = "dltype"
 version = "0.1.0"
-description = "A robust, type safe, runtime datatype and shape checker for pytorch tensors and numpy arrays."
+description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,6 +12,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "onnx>=1.18.0",
     "pytest>=8.4.1",
     "ruff>=0.12.0",
 ]
+ 

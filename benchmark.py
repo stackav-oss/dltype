@@ -1,12 +1,12 @@
 """Benchmark dltype vs. beartype vs. manual checking vs. baseline."""
 
-from contextlib import suppress
+from contextlib import suppress  # noqa: F401 (used for suppressing exceptions in benchmarks)
 from typing import Annotated
 
 import torch
 from torch.utils.benchmark import Measurement, Timer
 
-from dltype import dltype
+import dltype
 
 
 def baseline(

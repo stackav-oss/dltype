@@ -15,7 +15,7 @@ import pytest
 import torch
 from pydantic import BaseModel
 
-from dltype import dltype
+import dltype
 
 np_rand = np.random.RandomState(42).rand
 NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]
@@ -944,9 +944,11 @@ def test_named_axis() -> None:
 
 
 # mock max_acceptable_eval_time to zero to ensure we issue a warning if the context takes too long
-def test_warn_on_function_evaluation() -> None:
-    with patch("kits.ml.typing.dltype.MAX_ACCEPTABLE_EVALUATION_TIME_NS", 0):
-
+def test_warn_on_function_evaluation() -> None: 
+    with patch(
+        "dltype._lib._core._maybe_warn_runtime",
+        return_value=True,
+    ):
         @dltype.dltyped()
         def dummy_function(
             tensor: Annotated[torch.Tensor, dltype.FloatTensor["batch channels h w"]],

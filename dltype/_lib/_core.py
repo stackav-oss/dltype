@@ -34,7 +34,7 @@ import torch
 from pydantic_core import core_schema
 from typing_extensions import override
 
-from kits.ml.typing.parsers import (
+from dltype._lib._parser import (
     DLTypeDimensionExpression,
     DLTypeModifier,
     expression_from_string,
@@ -57,6 +57,11 @@ DEBUG_MODE: Final = False
 MAX_ACCEPTABLE_EVALUATION_TIME_NS: Final = int(5e9)  # 5ms
 DLtypeTensorT: TypeAlias = torch.Tensor | npt.NDArray[Any]
 SUPPORTED_TENSOR_TYPES: Final = {torch.Tensor, np.ndarray}
+
+
+def _maybe_warn_runtime(runtime_ns: int) -> None:
+    return runtime_ns > MAX_ACCEPTABLE_EVALUATION_TIME_NS
+        
 
 
 class DLTypeError(TypeError):
@@ -246,10 +251,11 @@ class _DLTypeContext:
 
         finally:
             end_t = time.perf_counter_ns()
-            _logger.debug("Context evaluation took %d ns", end_t - start_t)
-            if end_t - start_t > MAX_ACCEPTABLE_EVALUATION_TIME_NS:
+            runtime_ns = end_t - start_t
+            _logger.debug("Context evaluation took %d ns", runtime_ns)
+            if _maybe_warn_runtime(runtime_ns):
                 warnings.warn(
-                    f"Type checking took longer than expected {(end_t - start_t) / 1e6:.2f}ms > {MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6}ms",
+                    f"Type checking took longer than expected {(runtime_ns) / 1e6:.2f}ms > {MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6}ms",
                     UserWarning,
                     stacklevel=2,
                 )
