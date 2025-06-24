@@ -66,10 +66,14 @@ _op_precedence: Final = {
 }
 
 _functional_operators: Final = frozenset({_DLTypeOperator.MIN, _DLTypeOperator.MAX})
-_valid_operators: frozenset[str] = frozenset({op.value for op in _DLTypeOperator if op not in _functional_operators})
+_valid_operators: frozenset[str] = frozenset(
+    {op.value for op in _DLTypeOperator if op not in _functional_operators}
+)
 _valid_modifiers: frozenset[str] = frozenset({mod.value for mod in DLTypeModifier})
 
-INFIX_EXPRESSION_SPLIT_RX: Final = re.compile(f"({'|'.join(map(re.escape, _valid_operators))})")
+INFIX_EXPRESSION_SPLIT_RX: Final = re.compile(
+    f"({'|'.join(map(re.escape, _valid_operators))})"
+)
 VALID_EXPRESSION_RX: Final = re.compile(
     f"^[a-zA-Z0-9_{''.join(map(re.escape, _valid_operators.union(_valid_modifiers)))}]+$"
 )
@@ -92,15 +96,23 @@ class DLTypeDimensionExpression:
         self.parsed_expression = postfix_expression
         # multiaxis literals cannot be evaluated until the actual shape is known, so we don't consider this to be a true literal
         # for the purposes of evaluating the expression
-        self.is_literal = not is_multiaxis_literal and all(isinstance(token, int) for token in postfix_expression)
-        self.is_identifier = is_multiaxis_literal or (postfix_expression == [identifier])
+        self.is_literal = not is_multiaxis_literal and all(
+            isinstance(token, int) for token in postfix_expression
+        )
+        self.is_identifier = is_multiaxis_literal or (
+            postfix_expression == [identifier]
+        )
         # this is an expression if it's not a literal value, if it's an identifier that points to another dimension, or if it's an identifier that doesn't just point to itself
         self.is_expression = not self.is_literal and (
             len(postfix_expression) > 1 or self.identifier not in postfix_expression
         )
         self.is_multiaxis_literal = is_multiaxis_literal
         self.is_anonymous = is_anonymous
-        _logger.debug("Created new %s dimension expression %r", "multiaxis" if self.is_multiaxis_literal else "", self)
+        _logger.debug(
+            "Created new %s dimension expression %r",
+            "multiaxis" if self.is_multiaxis_literal else "",
+            self,
+        )
 
         # ensure we don't have any self-referential expressions
         if self.is_expression and self.identifier in self.parsed_expression:
@@ -125,7 +137,9 @@ class DLTypeDimensionExpression:
         This is a special case where the expression is a single literal that is repeated across all axes.
         Anonymous axes are a special case where the actual value of the literal is irrelevant.
         """
-        return cls(identifier, [literal], is_multiaxis_literal=True, is_anonymous=is_anonymous)
+        return cls(
+            identifier, [literal], is_multiaxis_literal=True, is_anonymous=is_anonymous
+        )
 
     def evaluate(self, scope: dict[str, int]) -> int:
         """Evaluate the expression."""
@@ -196,7 +210,8 @@ def _postfix_from_infix(identifier: str, expression: str) -> DLTypeDimensionExpr
             while (
                 stack
                 and isinstance(stack[-1], _DLTypeOperator)
-                and _op_precedence.get(stack[-1], 0) >= _op_precedence.get(current_op, 0)
+                and _op_precedence.get(stack[-1], 0)
+                >= _op_precedence.get(current_op, 0)
             ):
                 postfix.append(stack.pop())
 
@@ -273,7 +288,9 @@ def _maybe_parse_functional_expression(
     expr_2 = expression_from_string(arg2)
 
     # Build postfix expression: [arg1 tokens, arg2 tokens, function]
-    return DLTypeDimensionExpression(identifier, [*expr_1.parsed_expression, *expr_2.parsed_expression, function])
+    return DLTypeDimensionExpression(
+        identifier, [*expr_1.parsed_expression, *expr_2.parsed_expression, function]
+    )
 
 
 def expression_from_string(expression: str) -> DLTypeDimensionExpression:
@@ -316,7 +333,9 @@ def expression_from_string(expression: str) -> DLTypeDimensionExpression:
         identifier, expression = expression.split(DLTypeSpecifier.EQUALS.value)
 
     for function in _functional_operators:
-        if result := _maybe_parse_functional_expression(identifier, expression, function):
+        if result := _maybe_parse_functional_expression(
+            identifier, expression, function
+        ):
             _logger.debug("Parsed function expression %r", result)
             return result
 

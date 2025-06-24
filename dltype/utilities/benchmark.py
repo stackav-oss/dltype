@@ -1,14 +1,12 @@
 """Benchmark dltype vs. beartype vs. manual checking vs. baseline."""
 
-from contextlib import (
-    suppress,  # pyright: ignore[reportUnusedImport] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip # noqa: F401
-)
+from contextlib import suppress
 from typing import Annotated
 
 import torch
 from torch.utils.benchmark import Measurement, Timer
 
-from kits.ml.typing import dltype
+from dltype import dltype
 
 
 def baseline(
@@ -49,7 +47,9 @@ def manual_shape_check(
         msg = "Tensors must have type=torch.Tensor."
         raise TypeError(msg)
     shapes = (tensor_a.shape, tensor_b.shape, tensor_c.shape)
-    if not all(tensor.dtype == torch.float32 for tensor in (tensor_a, tensor_b, tensor_c)):
+    if not all(
+        tensor.dtype == torch.float32 for tensor in (tensor_a, tensor_b, tensor_c)
+    ):
         msg = "Tensors must have dtype=torch.float32."
         raise TypeError(msg)
     if {len(shape) for shape in shapes} != {4}:

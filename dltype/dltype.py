@@ -34,7 +34,11 @@ import torch
 from pydantic_core import core_schema
 from typing_extensions import override
 
-from kits.ml.typing.parsers import DLTypeDimensionExpression, DLTypeModifier, expression_from_string
+from kits.ml.typing.parsers import (
+    DLTypeDimensionExpression,
+    DLTypeModifier,
+    expression_from_string,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -86,7 +90,9 @@ class _DLTypeAnnotation(NamedTuple):
     dltype_annotation: TensorTypeBase
 
     @classmethod
-    def from_hint(cls, hint: type | None, optional: bool = False) -> _DLTypeAnnotation | None:
+    def from_hint(
+        cls, hint: type | None, optional: bool = False
+    ) -> _DLTypeAnnotation | None:
         """Create a new _DLTypeAnnotation from a type hint."""
         if hint is None:
             return None
@@ -115,7 +121,10 @@ class _DLTypeAnnotation(NamedTuple):
 
         # Ensure the annotation is a TensorTypeBase
         if len(args) < n_expected_args or not isinstance(args[1], TensorTypeBase):
-            _logger.warning("Invalid annotated dltype hint: %r", args[1:] if len(args) >= n_expected_args else None)
+            _logger.warning(
+                "Invalid annotated dltype hint: %r",
+                args[1:] if len(args) >= n_expected_args else None,
+            )
             return None
 
         # Ensure the base type is a supported tensor type
@@ -135,7 +144,9 @@ class _ConcreteType(NamedTuple):
     tensor: DLtypeTensorT
     dltype_annotation: TensorTypeBase
 
-    def get_expected_shape(self, tensor: DLtypeTensorT) -> tuple[DLTypeDimensionExpression, ...]:
+    def get_expected_shape(
+        self, tensor: DLtypeTensorT
+    ) -> tuple[DLTypeDimensionExpression, ...]:
         """Get the expected shape of the tensor.
 
         We handle multi-axis dimensions by replacing the multi-axis placeholder with the actual shape.
@@ -221,9 +232,17 @@ class _DLTypeContext:
                     msg = f"[tensor={tensor_context.tensor_arg_name=}] Duplicate tensor name in type checking context!"
                     raise DLTypeDuplicateError(msg)
 
-                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = tensor_context.tensor.dtype
-                expected_shape = tensor_context.get_expected_shape(tensor_context.tensor)
-                self._assert_tensor_shape(tensor_context.tensor_arg_name, expected_shape, tensor_context.tensor)
+                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = (
+                    tensor_context.tensor.dtype
+                )
+                expected_shape = tensor_context.get_expected_shape(
+                    tensor_context.tensor
+                )
+                self._assert_tensor_shape(
+                    tensor_context.tensor_arg_name,
+                    expected_shape,
+                    tensor_context.tensor,
+                )
 
         finally:
             end_t = time.perf_counter_ns()
@@ -250,17 +269,37 @@ class _DLTypeContext:
                 # we don't need to check anonymous dimensions
                 continue
 
-            if dimension_expression.is_literal and dimension_expression.identifier not in self.tensor_shape_map:
+            if (
+                dimension_expression.is_literal
+                and dimension_expression.identifier not in self.tensor_shape_map
+            ):
                 # handled by the check method above
-                _logger.debug("Skipping literal dimension %r (%s)", dimension_expression, self.tensor_shape_map)
+                _logger.debug(
+                    "Skipping literal dimension %r (%s)",
+                    dimension_expression,
+                    self.tensor_shape_map,
+                )
                 continue
 
-            if dimension_expression.is_identifier and dimension_expression.identifier not in self.tensor_shape_map:
-                _logger.debug("establishing %r with %r", dimension_expression.identifier, actual_shape[dim_idx])
-                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[dim_idx]
+            if (
+                dimension_expression.is_identifier
+                and dimension_expression.identifier not in self.tensor_shape_map
+            ):
+                _logger.debug(
+                    "establishing %r with %r",
+                    dimension_expression.identifier,
+                    actual_shape[dim_idx],
+                )
+                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[
+                    dim_idx
+                ]
                 continue
 
-            _logger.debug("Checking dimension %r with scope=%s", dimension_expression, self.tensor_shape_map)
+            _logger.debug(
+                "Checking dimension %r with scope=%s",
+                dimension_expression,
+                self.tensor_shape_map,
+            )
 
             try:
                 expected_result = dimension_expression.evaluate(self.tensor_shape_map)
@@ -274,7 +313,9 @@ class _DLTypeContext:
                 raise DLTypeShapeError(msg)
 
             if dimension_expression.identifier not in self.tensor_shape_map:
-                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[dim_idx]
+                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[
+                    dim_idx
+                ]
 
 
 def _resolve_numpy_dtype(np_array_t: type[npt.NDArray[Any]]) -> list[npt.DTypeLike]:
@@ -284,7 +325,9 @@ def _resolve_numpy_dtype(np_array_t: type[npt.NDArray[Any]]) -> list[npt.DTypeLi
 
     # if the dtype is a union of types, we need to resolve it
     return [
-        cast("npt.DTypeLike", dtype) for maybe_union in maybe_dtype for dtype in get_args(maybe_union) or [maybe_union]
+        cast("npt.DTypeLike", dtype)
+        for maybe_union in maybe_dtype
+        for dtype in get_args(maybe_union) or [maybe_union]
     ]
 
 
@@ -319,7 +362,9 @@ class TensorTypeBase:
         """Get the string representation of the tensor type."""
         return f"{self.__class__.__name__}[{self.expected_shape}]"
 
-    def _parse_shape_string(self, shape_string: str | None) -> tuple[DLTypeDimensionExpression, ...]:
+    def _parse_shape_string(
+        self, shape_string: str | None
+    ) -> tuple[DLTypeDimensionExpression, ...]:
         """Parse the shape string into a list of dimension expressions."""
         if shape_string is None:
             return ()
@@ -342,14 +387,19 @@ class TensorTypeBase:
                     break
 
             this_dimension_modifier = modifiers[i]
-            if this_dimension_modifier in {DLTypeModifier.NAMED_MULTIAXIS, DLTypeModifier.ANONYMOUS_MULTIAXIS}:
+            if this_dimension_modifier in {
+                DLTypeModifier.NAMED_MULTIAXIS,
+                DLTypeModifier.ANONYMOUS_MULTIAXIS,
+            }:
                 if self.multiaxis_index is not None:
                     msg = f"Multiple multiaxis modifiers not allowed in {shape_string=}"
                     raise SyntaxError(msg)
 
                 self.multiaxis_index = i
                 self.multiaxis_name = dim_str[len(this_dimension_modifier.value) :]
-                self.anonymous_multiaxis = this_dimension_modifier == DLTypeModifier.ANONYMOUS_MULTIAXIS
+                self.anonymous_multiaxis = (
+                    this_dimension_modifier == DLTypeModifier.ANONYMOUS_MULTIAXIS
+                )
 
             processed_shapes.append(expression_from_string(dim_str))
 
@@ -360,10 +410,14 @@ class TensorTypeBase:
         """Get the type of the tensor."""
         return cls(shape_string)
 
-    def __get_pydantic_core_schema__(self, source_type: type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+    def __get_pydantic_core_schema__(
+        self, source_type: type, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
         """Get the Pydantic core schema for this type."""
 
-        def validate_tensor(tensor: DLtypeTensorT, info: ValidationInfo) -> DLtypeTensorT:
+        def validate_tensor(
+            tensor: DLtypeTensorT, info: ValidationInfo
+        ) -> DLtypeTensorT:
             """Validate the tensor."""
             __tracebackhide__ = not DEBUG_MODE
             self.check(tensor)
@@ -409,11 +463,19 @@ class TensorTypeBase:
             msg = f"Invalid number of dimensions {tensor.shape=} {self.expected_shape=}"
             raise DLTypeShapeError(msg)
 
-        if isinstance(tensor, torch.Tensor) and self.TORCH_DTYPES and tensor.dtype not in self.TORCH_DTYPES:
+        if (
+            isinstance(tensor, torch.Tensor)
+            and self.TORCH_DTYPES
+            and tensor.dtype not in self.TORCH_DTYPES
+        ):
             msg = f"Invalid dtype {tensor.dtype} expected {self.TORCH_DTYPES}"
             raise DLTypeDtypeError(msg)
 
-        if isinstance(tensor, np.ndarray) and self.NP_DTYPES and tensor.dtype not in self.NP_DTYPES:
+        if (
+            isinstance(tensor, np.ndarray)
+            and self.NP_DTYPES
+            and tensor.dtype not in self.NP_DTYPES
+        ):
             msg = f"Invalid dtype {tensor.dtype} expected {self.NP_DTYPES}"
             raise DLTypeDtypeError(msg)
 
@@ -439,8 +501,24 @@ class IntTensor(TensorTypeBase):
 class FloatTensor(TensorTypeBase):
     """A class to represent a float tensor type."""
 
-    TORCH_DTYPES = (torch.float, torch.float16, torch.float32, torch.float64, torch.half, torch.bfloat16, torch.double)
-    NP_DTYPES = (np.float64, np.float16, np.float32, np.float64, np.float128, np.half, np.longdouble)
+    TORCH_DTYPES = (
+        torch.float,
+        torch.float16,
+        torch.float32,
+        torch.float64,
+        torch.half,
+        torch.bfloat16,
+        torch.double,
+    )
+    NP_DTYPES = (
+        np.float64,
+        np.float16,
+        np.float32,
+        np.float64,
+        np.float128,
+        np.half,
+        np.longdouble,
+    )
 
 
 class BoolTensor(TensorTypeBase):
@@ -465,13 +543,16 @@ def _maybe_get_type_hints(
         return existing_hints
     try:
         return {
-            name: _DLTypeAnnotation.from_hint(hint) for name, hint in get_type_hints(func, include_extras=True).items()
+            name: _DLTypeAnnotation.from_hint(hint)
+            for name, hint in get_type_hints(func, include_extras=True).items()
         }
     except NameError:
         return None
 
 
-def _maybe_get_signature(existing: inspect.Signature | None, func: Callable[P, R]) -> inspect.Signature | None:
+def _maybe_get_signature(
+    existing: inspect.Signature | None, func: Callable[P, R]
+) -> inspect.Signature | None:
     """Get the signature of a function, or return an empty signature if not available."""
     if existing is not None:
         return existing
@@ -504,7 +585,11 @@ def dltyped(  # noqa: C901, PLR0915
         # assume that if signature is None, we are dealing with a function with a forward reference, which is almost certainly a classmethod or staticmethod
         # we can't check the signature in this case, so we just assume it's a method for now to avoid raising a false positive error
         # if it _isn't_ a method but we specified "self", later on when we check if the scope provider is a DLTypeScopeProvider, we'll raise an error
-        is_method = bool("self" in signature.parameters or "cls" in signature.parameters) if signature else True
+        is_method = (
+            bool("self" in signature.parameters or "cls" in signature.parameters)
+            if signature
+            else True
+        )
         if scope_provider == "self" and not is_method:
             msg = "Scope provider types can only be used with methods."
             raise TypeError(msg)
@@ -514,7 +599,11 @@ def dltyped(  # noqa: C901, PLR0915
         # if we added dltype to a method where it will have no effect, warn the user
         if dltype_hints is not None and all(v is None for v in dltype_hints.values()):
             _logger.warning("dltype_hints=%r", dltype_hints)
-            warnings.warn("No DLType hints found, skipping type checking", UserWarning, stacklevel=2)
+            warnings.warn(
+                "No DLType hints found, skipping type checking",
+                UserWarning,
+                stacklevel=2,
+            )
             return func
 
         @wraps(func)
@@ -541,10 +630,16 @@ def dltyped(  # noqa: C901, PLR0915
 
             ctx = _DLTypeContext()
 
-            if scope_provider == "self" and isinstance(_actual_args[str(scope_provider)], DLTypeScopeProvider):
-                ctx.tensor_shape_map = _actual_args[str(scope_provider)].get_dltype_scope()
+            if scope_provider == "self" and isinstance(
+                _actual_args[str(scope_provider)], DLTypeScopeProvider
+            ):
+                ctx.tensor_shape_map = _actual_args[
+                    str(scope_provider)
+                ].get_dltype_scope()
                 _logger.debug("Using self as scope provider %s", ctx.tensor_shape_map)
-            elif scope_provider is not None and isinstance(scope_provider, DLTypeScopeProvider):
+            elif scope_provider is not None and isinstance(
+                scope_provider, DLTypeScopeProvider
+            ):
                 ctx.tensor_shape_map = scope_provider.get_dltype_scope()
                 _logger.debug("Using unbound scope provider %s", ctx.tensor_shape_map)
             elif scope_provider is not None:
@@ -566,7 +661,11 @@ def dltyped(  # noqa: C901, PLR0915
                     tensor = _actual_args[name]
                     ctx.add(name, tensor, maybe_annotation.dltype_annotation)
                 elif isinstance(_actual_args[name], torch.Tensor | np.ndarray):
-                    warnings.warn(f"[argument={name}] is missing a DLType hint", UserWarning, stacklevel=2)
+                    warnings.warn(
+                        f"[argument={name}] is missing a DLType hint",
+                        UserWarning,
+                        stacklevel=2,
+                    )
                 else:
                     _logger.debug("No DLType hint for %r", name)
 
@@ -574,10 +673,16 @@ def dltyped(  # noqa: C901, PLR0915
                 ctx.assert_context()
                 retval = func(*args, **kwargs)
                 if maybe_return_annotation := dltype_hints.get(_return_key):
-                    ctx.add(_return_key, retval, maybe_return_annotation.dltype_annotation)
+                    ctx.add(
+                        _return_key, retval, maybe_return_annotation.dltype_annotation
+                    )
                     ctx.assert_context()
                 elif isinstance(retval, torch.Tensor | np.ndarray):
-                    warnings.warn(f"[{_return_key}] is missing a DLType hint", UserWarning, stacklevel=2)
+                    warnings.warn(
+                        f"[{_return_key}] is missing a DLType hint",
+                        UserWarning,
+                        stacklevel=2,
+                    )
             except DLTypeError as e:
                 # include the full function signature in the error message
                 msg = f"Error in {func.__name__}{signature}: {e}\n"
@@ -679,7 +784,10 @@ def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
         original_init = cls.__init__
         # Get field annotations
         field_hints = get_type_hints(cls, include_extras=True)
-        _dltype_hints = {name: _DLTypeAnnotation.from_hint(hint) for name, hint in field_hints.items()}
+        _dltype_hints = {
+            name: _DLTypeAnnotation.from_hint(hint)
+            for name, hint in field_hints.items()
+        }
 
         def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
             """A new __init__ method that validates the fields after initialization."""

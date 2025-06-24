@@ -32,7 +32,9 @@ from kits.ml.typing import parsers
         ("variable_name_with_underscores", {"variable_name_with_underscores": 1}, 1),
     ],
 )
-def test_parse_expression(expression: str, scope: dict[str, int], expected: int) -> None:
+def test_parse_expression(
+    expression: str, scope: dict[str, int], expected: int
+) -> None:
     assert parsers.expression_from_string(expression).evaluate(scope) == expected
 
 
