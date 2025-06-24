@@ -15,7 +15,7 @@ import pytest
 import torch
 from pydantic import BaseModel
 
-from kits.ml.typing import dltype
+from dltype import dltype
 
 np_rand = np.random.RandomState(42).rand
 NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]

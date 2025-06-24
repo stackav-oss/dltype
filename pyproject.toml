@@ -1,0 +1,16 @@
+[project]
+name = "dltype"
+version = "0.1.0"
+description = "A robust, type safe, runtime datatype and shape checker for pytorch tensors and numpy arrays."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pydantic>=2.0", 
+    "torch>=1.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
