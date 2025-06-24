@@ -97,7 +97,7 @@ DoubleTensor["batch *channels features"] # named dimension which can be matched 
 ```python
 from typing import Annotated
 import torch
-from kits.ml.typing.dltype import FloatTensor, dltyped
+from dltype import FloatTensor, dltyped
 
 @dltyped()
 def add_tensors(
@@ -113,7 +113,7 @@ def add_tensors(
 from typing import Annotated
 from pydantic import BaseModel
 import torch
-from kits.ml.typing.dltype import FloatTensor, IntTensor
+from dltype import FloatTensor, IntTensor
 
 class ImageBatch(BaseModel):
     # note the parenthesis instead of brackets for pydantic models
@@ -146,7 +146,7 @@ Therefore, we recommend using frozen `@dataclasses` when possible.
 ```python
 from typing import Annotated
 import torch
-from kits.ml.typing.dltype import FloatTensor, IntTensor, dltyped_dataclass
+from dltype import FloatTensor, IntTensor, dltyped_dataclass
 
 # order is important, we raise an error if dltyped_dataclass is applied below dataclass
 # this is because the @dataclass decorator applies a bunch of source code modification that we don't want to have to hack around
@@ -177,7 +177,7 @@ def optional_tensor_func(tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c
 from typing import Annotated
 import torch
 import numpy as np
-from kits.ml.typing.dltype import FloatTensor, dltyped
+from dltype import FloatTensor, dltyped
 
 @dltyped()
 def transform_tensors(
