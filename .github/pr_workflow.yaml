@@ -1,0 +1,22 @@
+name: Run Pytest on PR
+run-name: ${{ github.actor }} Testing 🚀
+pull_request:
+  branches:
+  - main
+jobs:
+  unit-test:
+    name: python
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest --verbose dltype/
+    

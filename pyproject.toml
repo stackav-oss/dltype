@@ -1,5 +1,6 @@
 [project]
 name = "dltype"
+classifiers = ["Private :: Do Not Upload"]
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
