@@ -1,9 +1,15 @@
 {
-    "ruff.path": [
-        "${workspaceFolder}/.venv/bin/ruff"
-    ],
-    "ruff.interpreter": [
-        "${workspaceFolder}/.venv/bin/python"
-    ],
-    "editor.formatOnSave": true
+  "[json]": {
+    "editor.formatOnSave": false
+  },
+  "[yaml]": {
+    "editor.formatOnSave": false
+  },
+  "editor.formatOnSave": true,
+  "ruff.interpreter": [
+    "${workspaceFolder}/.venv/bin/python"
+  ],
+  "ruff.path": [
+    "${workspaceFolder}/.venv/bin/ruff"
+  ]
 }

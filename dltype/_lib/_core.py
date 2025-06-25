@@ -61,7 +61,6 @@ SUPPORTED_TENSOR_TYPES: Final = {torch.Tensor, np.ndarray}
 
 def _maybe_warn_runtime(runtime_ns: int) -> None:
     return runtime_ns > MAX_ACCEPTABLE_EVALUATION_TIME_NS
-        
 
 
 class DLTypeError(TypeError):
@@ -713,7 +712,7 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
 
     def _inner_dltyped_namedtuple(cls: type[NT]) -> type[NT]:
         # NOTE: NamedTuple isn't actually a class, it's a factory function that returns a new class so we can't use issubclass here
-        if not (isinstance(cls, type) and hasattr(cls, "_fields") and issubclass(cls, tuple)):  # pyright: ignore[reportUnnecessaryIsInstance] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        if not (isinstance(cls, type) and hasattr(cls, '_fields') and issubclass(cls, tuple)):  # pyright: ignore[reportUnnecessaryIsInstance] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
             msg = f"Expected a NamedTuple class, got {cls}"
             raise TypeError(msg)
 
