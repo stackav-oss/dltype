@@ -15,4 +15,3 @@ Please select all that apply.
 
 - Please add relevant commands required to reproduce the testing described above
 - Please add relevant test outputs (screenshots, logs, etc.)
- 
