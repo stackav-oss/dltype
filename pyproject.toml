@@ -7,7 +7,6 @@ dev = [
 ]
 
 [project]
-classifiers = ["Private :: Do Not Upload"]
 dependencies = [
   "numpy",
   "pydantic>=2.0",
