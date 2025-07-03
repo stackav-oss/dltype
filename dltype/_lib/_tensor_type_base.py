@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import typing
 
-import numpy as np
-import numpy.typing as npt
-import torch
 from pydantic_core import core_schema
 from typing_extensions import override
 
@@ -23,6 +20,7 @@ if typing.TYPE_CHECKING:
 
 if _deps.is_numpy_available() and _deps.is_torch_available():
     import torch
+    import numpy as np
     import numpy.typing as npt
 
     DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]
