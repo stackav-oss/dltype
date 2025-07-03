@@ -30,7 +30,6 @@ from dltype._lib._dependency_utilities import (
 )
 
 if is_torch_available() and is_numpy_available():
-    print("BOTH TORCH AND NUMPY ARE AVAILABLE")
     from dltype._lib._universal_tensors import (
         IntTensor,
         FloatTensor,
@@ -38,7 +37,6 @@ if is_torch_available() and is_numpy_available():
         DoubleTensor,
     )
 elif is_numpy_available():
-    print("ONLY NUMPY IS AVAILABLE")
     from dltype._lib._numpy_tensors import (
         IntTensor,
         FloatTensor,
@@ -46,7 +44,6 @@ elif is_numpy_available():
         DoubleTensor,
     )
 elif is_torch_available():
-    print("ONLY TORCH IS AVAILABLE")
     from dltype._lib._torch_tensors import (
         IntTensor,
         FloatTensor,
