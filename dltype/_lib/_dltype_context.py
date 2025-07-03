@@ -8,9 +8,6 @@ import warnings
 from collections import deque
 from typing import Any, Final, NamedTuple, TypeAlias
 
-import numpy as np
-import numpy.typing as npt
-import torch
 
 from dltype._lib import _parser, _constants, _tensor_type_base, _errors
 
@@ -82,7 +79,7 @@ class DLTypeContext:
         # mapping of dimension -> shape
         self.tensor_shape_map: EvaluatedDimensionT = {}
         # mapping of tensor name -> tensor type, used to check for duplicates
-        self.registered_tensor_dtypes: dict[str, torch.dtype | npt.DTypeLike] = {}
+        self.registered_tensor_dtypes: dict[str, _tensor_type_base.DLtypeDtypeT] = {}
 
     def add(
         self,
@@ -94,7 +91,9 @@ class DLTypeContext:
         if dltype_annotation.optional and tensor is None:
             # skip optional tensors
             return
-        if not isinstance(tensor, torch.Tensor | np.ndarray):
+        if not any(
+            isinstance(tensor, T) for T in _tensor_type_base.SUPPORTED_TENSOR_TYPES
+        ):
             msg = f"Invalid type {type(tensor)}"
             raise _errors.DLTypeError(msg)
         self._hinted_tensors.append(_ConcreteType(name, tensor, dltype_annotation))
