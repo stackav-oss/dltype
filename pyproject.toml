@@ -10,11 +10,11 @@ dev = [
 dependencies = [
   "pydantic>=2.0"
 ]
-description = "Add your description here"
+description = "An extremely lightweight typing library for torch tensors or numpy arrays. Supports runtime shape checking and data type validation."
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.1.0"
+version = "0.2.0"
 
 [project.optional-dependencies]
 numpy = [
