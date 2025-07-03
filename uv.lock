@@ -45,7 +45,7 @@ wheels = [
 
 [[package]]
 name = "dltype"
-version = "0.1.0"
+version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "pydantic" },
@@ -74,7 +74,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "torch", marker = "extra == 'torch'", specifier = ">=1.4.0" },
 ]
-provides-extras = ["torch", "numpy"]
+provides-extras = ["numpy", "torch"]
 
 [package.metadata.requires-dev]
 dev = [
