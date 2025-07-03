@@ -8,12 +8,18 @@ dev = [
 
 [project]
 dependencies = [
-  "numpy",
-  "pydantic>=2.0",
-  "torch>=1.4.0"
+  "pydantic>=2.0"
 ]
 description = "Add your description here"
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
 version = "0.1.0"
+
+[project.optional-dependencies]
+numpy = [
+  "numpy"
+]
+torch = [
+  "torch>=1.4.0"
+]
