@@ -945,10 +945,7 @@ def test_named_axis() -> None:
 
 # mock max_acceptable_eval_time to zero to ensure we issue a warning if the context takes too long
 def test_warn_on_function_evaluation() -> None:
-    with patch(
-        "dltype._lib._core._maybe_warn_runtime",
-        return_value=True,
-    ):
+    with patch("dltype._lib._dltype_context._maybe_warn_runtime", return_value=True):
 
         @dltype.dltyped()
         def dummy_function(
