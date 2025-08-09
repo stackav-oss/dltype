@@ -40,6 +40,32 @@ def is_numpy_available() -> bool:
     return np is not None
 
 
+@cache
+def is_np_float128_available() -> bool:
+    _FLOAT128_AVAILABLE = False
+    if is_numpy_available():
+        try:
+            # Check if float128 is available (may not be supported on all platforms)
+            _ = np.float128
+            _FLOAT128_AVAILABLE = True
+        except AttributeError:
+            pass
+    return _FLOAT128_AVAILABLE
+
+
+@cache
+def is_np_longdouble_available() -> bool:
+    _LONGDOUBLE_AVAILABLE = False
+    if is_numpy_available():
+        try:
+            # Check if longdouble is available (may not be supported on all platforms)
+            _ = np.longdouble
+            _LONGDOUBLE_AVAILABLE = True
+        except AttributeError:
+            pass
+    return _LONGDOUBLE_AVAILABLE
+
+
 def raise_for_missing_dependency() -> NoReturn:
     """Raise an ImportError if neither torch nor numpy is available."""
     if not is_torch_available() and not is_numpy_available():
