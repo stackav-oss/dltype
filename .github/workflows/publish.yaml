@@ -29,6 +29,9 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest
+
+      - name: Run benchmarks
+        run: |
           uv run benchmark.py
 
       - name: Build package distributions
