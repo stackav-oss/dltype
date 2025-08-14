@@ -3,7 +3,10 @@
 import numpy as np
 
 from dltype._lib._tensor_type_base import TensorTypeBase
-from _dependency_utilities import is_np_float128_available, is_np_longdouble_available
+from dltype._lib._dependency_utilities import (
+    is_np_float128_available,
+    is_np_longdouble_available,
+)
 
 
 class Int8Tensor(TensorTypeBase):
@@ -41,13 +44,14 @@ class IntTensor(TensorTypeBase):
     )
 
 
-class Float16Tensor(TensorTypeBase):
-    """A dtype for standard 16 bit half-floats."""
+class IEEE754HalfFloatTensor(TensorTypeBase):
+    """A dtype for 16 bit half-precision floats that comply with the IEE 754 specification."""
 
     DTYPES = (np.float16,)
 
 
-HalfFloatTensor = Float16Tensor
+# Note that numpy does not support non IEEE754 compliant 16 bit floating types such as bfloat16
+Float16Tensor = IEEE754HalfFloatTensor
 
 
 class Float32Tensor(TensorTypeBase):
