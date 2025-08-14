@@ -235,13 +235,22 @@ def free_function(tensor: FloatTensor["batch dim1"]) -> None:
     # ... implementation details, dim1 provided by the external scope
 ```
 
-## Available Types
+## Supported Types
 
-- FloatTensor: For floating-point tensors
-- IntTensor: For integer tensors
-- BoolTensor: For boolean tensors
-- DoubleTensor: For double-precision floating-point tensors
-- TensorTypeBase: Base class for any tensor which does not enforce any specific datatype, feel free to add custom validation logic by overriding the `check` method.
+- `FloatTensor`: For any precision floating point tensor. Is a superset of the following:
+    - `Float16Tensor`: For any 16 bit floating point type. Is a superset of the following:
+        - `IEEE754HalfFloatTensor`: For 16 bit floating point types that comply with the IEE 754 half-precision specification (notably, does not include `bfloat16`). For numpy tensors `Float16Tensor` is equal to `IEEE754HalfFloatTensor`. Use if you need to forbid usage of `bfloat16` for some reason. Otherwise prefer the `Float16Tensor` type for usage with mixed precision codebases.
+        - `BFloat16Tensor`: For 16 bit floating point tensors following the [`bfloat16` format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format). Is not IEEE 754 compliant and is not supported by NumPy. Use if you need to write code that is `bfloat16` specific, otherwise prefer `Float16Tensor` for usage with a mixed precision instruction scope (such as `torch.amp`).
+    - `Float32Tensor`: For single precision 32 bit floats.
+    - `Float64Tensor`: For double precision 64 bit floats. Aliases to `DoubleTensor`.
+    - Note that `np.float128` and `np.longdouble` will be considered as `FloatTensors` BUT do not exist as standalone types to be used by `dltype` ie. there is no `Float128Tensor` type. These types are not suported by torch, and only supported by numpy on certain platforms, thus we only "support" them insofar as they are considered floating point types.
+- `IntTensor`: For integer tensors of any precision. Is a superset of the following:
+    - `Int8Tensor`
+    - `Int16Tensor`
+    - `Int32Tensor`
+    - `Int64Tensor`
+- `BoolTensor`: For boolean tensors
+- `TensorTypeBase`: Base class for any tensor which does not enforce any specific datatype, feel free to add custom validation logic by overriding the `check` method.
 
 ## Limitations
 

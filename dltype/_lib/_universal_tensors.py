@@ -14,7 +14,7 @@ if is_numpy_available():
         Int32Tensor as NumPyInt32Tensor,
         Int64Tensor as NumPyInt64Tensor,
         IntTensor as NumPyIntTensor,
-        HalfFloatTensor as NumPyHalfFloatTensor,
+        IEEE754HalfFloatTensor as NumPyIEEE754HalfFloatTensor,
         Float16Tensor as NumPyFloat16Tensor,
         Float32Tensor as NumPyFloat32Tensor,
         Float64Tensor as NumPyFloat64Tensor,
@@ -29,7 +29,7 @@ if is_torch_available():
         Int32Tensor as TorchInt32Tensor,
         Int64Tensor as TorchInt64Tensor,
         IntTensor as TorchIntTensor,
-        HalfFloatTensor as TorchHalfFloatTensor,
+        IEEE754HalfFloatTensor as TorchIEEE754HalfFloatTensor,
         BFloat16Tensor as TorchBFloat16Tensor,
         Float16Tensor as TorchFloat16Tensor,
         Float32Tensor as TorchFloat32Tensor,
@@ -119,18 +119,18 @@ class IntTensor(_tensor_type_base.TensorTypeBase):
     )
 
 
-class HalfFloatTensor(_tensor_type_base.TensorTypeBase):
+class IEEE754HalfFloatTensor(_tensor_type_base.TensorTypeBase):
     """A class to represent half precision tensor types. Does not include special types such as bfloat16.
 
     Use this type if bfloat16 causes issues for some reason and you need to prohibit its use."""
 
     DTYPES = (
-        (*TorchHalfFloatTensor.DTYPES, *NumPyHalfFloatTensor.DTYPES)
+        (*TorchIEEE754HalfFloatTensor.DTYPES, *NumPyIEEE754HalfFloatTensor.DTYPES)
         if is_torch_available() and is_numpy_available()
         else (
-            TorchHalfFloatTensor.DTYPES
+            TorchIEEE754HalfFloatTensor.DTYPES
             if is_torch_available()
-            else NumPyHalfFloatTensor.DTYPES
+            else NumPyIEEE754HalfFloatTensor.DTYPES
             if is_numpy_available()
             else raise_for_missing_dependency()
         )
@@ -234,7 +234,7 @@ __all__ = [
     "Int32Tensor",
     "Int64Tensor",
     "IntTensor",
-    "HalfFloatTensor",
+    "IEEE754HalfFloatTensor",
     "BFloat16Tensor",
     "Float16Tensor",
     "Float32Tensor",

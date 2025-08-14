@@ -46,8 +46,8 @@ class BFloat16Tensor(TensorTypeBase):
     DTYPES = (torch.bfloat16,)
 
 
-class HalfFloatTensor(TensorTypeBase):
-    """A dtype for standard 16 bit half-floats."""
+class IEEE754HalfFloatTensor(TensorTypeBase):
+    """A dtype for 16 bit half-precision floats that comply with the IEE 754 specification (does not include bfloat16)."""
 
     DTYPES = (
         torch.half,
@@ -58,7 +58,7 @@ class HalfFloatTensor(TensorTypeBase):
 class Float16Tensor(TensorTypeBase):
     """A class to represent any 16 bit floating point type (includes regular float16 as well as bfloat16)."""
 
-    DTYPES = (*HalfFloatTensor.DTYPES, *BFloat16Tensor.DTYPES)
+    DTYPES = (*IEEE754HalfFloatTensor.DTYPES, *BFloat16Tensor.DTYPES)
 
 
 class Float32Tensor(TensorTypeBase):
