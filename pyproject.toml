@@ -16,7 +16,7 @@ description = "An extremely lightweight typing library for torch tensors or nump
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.2.0"
+version = "0.3.1"
 
 [project.optional-dependencies]
 numpy = [
