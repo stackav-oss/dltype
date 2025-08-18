@@ -20,7 +20,7 @@ license = "Apache-2.0"
 license-files = ["LICEN[CS]E.*"]
 keywords = ["pytorch", "numpy", "shape check", "type check"]
 requires-python = ">=3.10"
-version = "0.2.0"
+version = "0.3.1"
 
 [project.urls]
 homepage = "https://github.com/stackav-oss/dltype"
