@@ -5,13 +5,11 @@ dev = [
   "pytest>=8.4.1",
   "ruff>=0.12.0",
   "torch>=1.4.0",
-  "setuptools>=60.0.0"
+  "setuptools>=60.0.0",
 ]
 
 [project]
-dependencies = [
-  "pydantic>=2.0"
-]
+dependencies = ["pydantic>=2.0"]
 description = "An extremely lightweight typing library for torch tensors or numpy arrays. Supports runtime shape checking and data type validation."
 keywords = ["pytorch", "numpy", "shape check", "type check"]
 license = "Apache-2.0"
@@ -19,15 +17,11 @@ license-files = ["LICEN[CS]E.*"]
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.3.1"
+version = "0.4.0"
 
 [project.optional-dependencies]
-numpy = [
-  "numpy"
-]
-torch = [
-  "torch>=1.4.0"
-]
+numpy = ["numpy"]
+torch = ["torch>=1.4.0"]
 
 [project.urls]
 homepage = "https://github.com/stackav-oss/dltype"
