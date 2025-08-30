@@ -31,10 +31,38 @@ from dltype._lib._dependency_utilities import (
 
 if is_torch_available() and is_numpy_available():
     from dltype._lib._universal_tensors import (
+        UInt8Tensor,
+        UInt16Tensor,
+        UInt32Tensor,
+        UInt64Tensor,
         Int8Tensor,
         Int16Tensor,
         Int32Tensor,
         Int64Tensor,
+        SignedIntTensor,
+        UnsignedIntTensor,
+        IntTensor,
+        Float16Tensor,
+        IEEE754HalfFloatTensor,
+        BFloat16Tensor,
+        Float32Tensor,
+        Float64Tensor,
+        FloatTensor,
+        BoolTensor,
+        DoubleTensor,
+    )
+elif is_torch_available():
+    from dltype._lib._torch_tensors import (
+        UInt8Tensor,
+        UInt16Tensor,
+        UInt32Tensor,
+        UInt64Tensor,
+        Int8Tensor,
+        Int16Tensor,
+        Int32Tensor,
+        Int64Tensor,
+        SignedIntTensor,
+        UnsignedIntTensor,
         IntTensor,
         Float16Tensor,
         IEEE754HalfFloatTensor,
@@ -47,10 +75,16 @@ if is_torch_available() and is_numpy_available():
     )
 elif is_numpy_available():
     from dltype._lib._numpy_tensors import (
+        UInt8Tensor,
+        UInt16Tensor,
+        UInt32Tensor,
+        UInt64Tensor,
         Int8Tensor,
         Int16Tensor,
         Int32Tensor,
         Int64Tensor,
+        SignedIntTensor,
+        UnsignedIntTensor,
         IntTensor,
         Float16Tensor,
         IEEE754HalfFloatTensor,
@@ -60,22 +94,8 @@ elif is_numpy_available():
         BoolTensor,
         DoubleTensor,
     )
-elif is_torch_available():
-    from dltype._lib._torch_tensors import (
-        Int8Tensor,
-        Int16Tensor,
-        Int32Tensor,
-        Int64Tensor,
-        IntTensor,
-        Float16Tensor,
-        IEEE754HalfFloatTensor,
-        BFloat16Tensor,
-        Float32Tensor,
-        Float64Tensor,
-        FloatTensor,
-        BoolTensor,
-        DoubleTensor,
-    )
+
+    BFloat16Tensor = None
 else:
     raise_for_missing_dependency()
 
@@ -95,12 +115,19 @@ __all__ = [
     "dltyped",
     "dltyped_namedtuple",
     "dltyped_dataclass",
+    "UInt8Tensor",
+    "UInt16Tensor",
+    "UInt32Tensor",
+    "UInt64Tensor",
     "Int8Tensor",
     "Int16Tensor",
     "Int32Tensor",
     "Int64Tensor",
+    "UnsignedIntTensor",
+    "SignedIntTensor",
     "IntTensor",
     "Float16Tensor",
+    "BFloat16Tensor",
     "IEEE754HalfFloatTensor",
     "BFloat16Tensor",
     "Float32Tensor",

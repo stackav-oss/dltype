@@ -583,7 +583,7 @@ def test_bad_argument_name() -> None:
 def test_bad_dimension_name() -> None:
     with pytest.raises(SyntaxError):
 
-        def bad_function(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def bad_function(  # pyright: ignore[reportUnusedFunction]
             tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b?"]],
         ) -> None:
             print(tensor)
@@ -664,7 +664,7 @@ def test_expression_syntax_errors() -> None:
     with pytest.raises(SyntaxError):
 
         @dltype.dltyped()
-        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
             _: Annotated[torch.Tensor, dltype.FloatTensor["batch channels dim+"]],
         ) -> None:
             return None
@@ -672,7 +672,7 @@ def test_expression_syntax_errors() -> None:
     with pytest.raises(SyntaxError):
 
         @dltype.dltyped()
-        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
             _: Annotated[torch.Tensor, dltype.FloatTensor["+ - * dim"]],
         ) -> None:
             return None
@@ -680,7 +680,7 @@ def test_expression_syntax_errors() -> None:
     with pytest.raises(SyntaxError):
         # don't allow multiple min/max calls
         @dltype.dltyped()
-        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
             _: Annotated[
                 torch.Tensor,
                 dltype.FloatTensor[
@@ -693,7 +693,7 @@ def test_expression_syntax_errors() -> None:
     with pytest.raises(SyntaxError):
         # don't allow multiple operators in a row
         @dltype.dltyped()
-        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
             _: Annotated[torch.Tensor, dltype.FloatTensor["dim dim-*1"]],
         ) -> None:
             return None
@@ -966,7 +966,7 @@ def test_incompatible_tensor_type() -> None:
     with pytest.raises(TypeError):
 
         @dltype.dltyped()
-        def bad_function(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def bad_function(  # pyright: ignore[reportUnusedFunction]
             tensor: Annotated[list[int], dltype.IntTensor["b c h w"]],
         ) -> list[int]:
             return tensor
@@ -974,7 +974,7 @@ def test_incompatible_tensor_type() -> None:
 
 def test_dimension_name_with_underscores() -> None:
     @dltype.dltyped()
-    def good_function(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+    def good_function(  # pyright: ignore[reportUnusedFunction]
         tensor: Annotated[
             torch.Tensor, dltype.IntTensor["batch channels_in channels_out"]
         ],
@@ -1064,7 +1064,7 @@ def test_optional_type_handling() -> None:
     with pytest.raises(TypeError, match="Only Optional tensor types are supported"):
 
         @dltype.dltyped()
-        def union_tensor_func(  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def union_tensor_func(  # pyright: ignore[reportUnusedFunction]
             tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]]
             | Annotated[torch.Tensor, dltype.IntTensor["b c"]],
         ) -> None:
@@ -1173,7 +1173,7 @@ def test_annotated_dataclass() -> None:
 
         @dataclass(frozen=True, kw_only=True, slots=True)
         @dltype.dltyped_dataclass()
-        class AnnotatedDataclass2:  # pyright: ignore[reportUnusedClass] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        class AnnotatedDataclass2:  # pyright: ignore[reportUnusedClass]
             pass
 
     # test with optional fields
@@ -1205,20 +1205,20 @@ def test_improper_base_model_construction() -> None:
     """Test that improper construction of BaseModel raises an error."""
     with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid numpy array dtype"):
 
-        class _BadModel(BaseModel):  # pyright: ignore[reportUnusedClass] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        class _BadModel(BaseModel):  # pyright: ignore[reportUnusedClass]
             tensor: Annotated[npt.NDArray[np.float32], dltype.IntTensor["b c h w"]]
 
     with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid numpy array dtype"):
 
-        class _BadModel2(BaseModel):  # pyright: ignore[reportUnusedClass] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        class _BadModel2(BaseModel):  # pyright: ignore[reportUnusedClass]
             tensor: Annotated[
                 npt.NDArray[np.float32 | np.float64], dltype.IntTensor["b c h w"]
             ]
 
-    class _GoodModel(BaseModel):  # pyright: ignore[reportUnusedClass] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+    class _GoodModel(BaseModel):  # pyright: ignore[reportUnusedClass]
         tensor: Annotated[npt.NDArray[np.int32], dltype.IntTensor["b c h w"]]
 
-    class _GoodModel2(BaseModel):  # pyright: ignore[reportUnusedClass] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+    class _GoodModel2(BaseModel):  # pyright: ignore[reportUnusedClass]
         tensor: Annotated[npt.NDArray[np.int8 | np.int32], dltype.IntTensor["b c h w"]]
 
 
@@ -1267,7 +1267,7 @@ def test_warning_if_decorator_has_no_annotations_to_check() -> None:
     ):
 
         @dltype.dltyped()
-        def no_annotations(tensor: torch.Tensor) -> torch.Tensor:  # pyright: ignore[reportUnusedFunction] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        def no_annotations(tensor: torch.Tensor) -> torch.Tensor:  # pyright: ignore[reportUnusedFunction]
             return tensor
 
     # should warn if some tensors are untyped
@@ -1301,3 +1301,64 @@ def test_scalar() -> None:
 
     with pytest.raises(SyntaxError, match="Invalid shape shape_string=''"):
         Annotated[torch.Tensor, dltype.FloatTensor[""]]
+
+
+def test_signed_vs_unsigned() -> None:
+    """Test signed vs unsigned errors are handled correctly."""
+
+    @dltype.dltyped()
+    def signed_vs_unsigned(
+        x: Annotated[NPFloatArrayT, dltype.SignedIntTensor["x"]],
+        y: Annotated[NPFloatArrayT, dltype.UnsignedIntTensor["x"]],
+    ) -> Annotated[torch.Tensor, dltype.IntTensor["x"]]:
+        return torch.from_numpy((x * y).astype(np.uint8))
+
+    # should work nominally
+
+    np.testing.assert_allclose(
+        signed_vs_unsigned(
+            np.array([6], dtype=np.int32), np.array([8], dtype=np.uint32)
+        ).numpy(),
+        np.array([48], dtype=np.uint8),
+    )
+
+    # Should fail with a bad signed tensor
+    with pytest.raises(dltype.DLTypeDtypeError):
+        signed_vs_unsigned(
+            np.array([6], dtype=np.uint32), np.array([8], dtype=np.uint32)
+        )
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        signed_vs_unsigned(np.array([6], dtype=np.int32), np.array([8], dtype=np.int32))
+
+
+def test_bit_widths() -> None:
+    """Test bit width errors are handled correctly."""
+
+    @dltype.dltyped()
+    def various_bit_widths(
+        x: Annotated[NPFloatArrayT, dltype.UInt16Tensor["x"]],
+        y: Annotated[torch.Tensor, dltype.Int64Tensor["x"]],
+    ) -> Annotated[NPFloatArrayT, dltype.UInt8Tensor["x"]]:
+        return (x + y.numpy()).astype(np.uint8)
+
+    # should work nominally
+
+    np.testing.assert_allclose(
+        various_bit_widths(
+            np.array([6], dtype=np.uint16), torch.tensor([8], dtype=torch.int64)
+        ),
+        np.array([14], dtype=np.uint8),
+    )
+
+    # Should fail with a bad width on a numpy tensor
+    with pytest.raises(dltype.DLTypeDtypeError):
+        various_bit_widths(
+            np.array([6], dtype=np.uint32), np.array([8], dtype=np.int64)
+        )
+
+    # Should fail with a bad width on a torch tensor
+    with pytest.raises(dltype.DLTypeDtypeError):
+        various_bit_widths(
+            np.array([6], dtype=np.uint16), np.array([8], dtype=np.int32)
+        )

@@ -16,7 +16,7 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
-    Union,  # pyright: ignore[reportDeprecated] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+    Union,  # pyright: ignore[reportDeprecated]
     cast,
     get_args,
     get_origin,
@@ -63,7 +63,7 @@ class _DLTypeAnnotation(NamedTuple):
         args = get_args(hint)
 
         # Handle Optional[T] types (Union[T, None] or Union[T, NoneType])
-        if origin is Union:  # pyright: ignore[reportDeprecated] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        if origin is Union:  # pyright: ignore[reportDeprecated]
             # Get the non-None type from the Union
             non_none_types = [t for t in args if t not in {type(None), None}]
 
@@ -288,7 +288,9 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
 
     def _inner_dltyped_namedtuple(cls: type[NT]) -> type[NT]:
         # NOTE: NamedTuple isn't actually a class, it's a factory function that returns a new class so we can't use issubclass here
-        if not (isinstance(cls, type) and hasattr(cls, '_fields') and issubclass(cls, tuple)):  # pyright: ignore[reportUnnecessaryIsInstance] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+        if not (
+            isinstance(cls, type) and hasattr(cls, "_fields") and issubclass(cls, tuple)
+        ):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = f"Expected a NamedTuple class, got {cls}"
             raise TypeError(msg)
 

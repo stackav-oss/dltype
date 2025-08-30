@@ -43,7 +43,9 @@ def manual_shape_check(
     tensor_c: torch.Tensor,
 ) -> torch.Tensor:
     """A function that takes a tensor and returns a tensor."""
-    if not all(isinstance(tensor, torch.Tensor) for tensor in (tensor_a, tensor_b, tensor_c)):  # pyright: ignore[reportUnnecessaryIsInstance] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+    if not all(
+        isinstance(tensor, torch.Tensor) for tensor in (tensor_a, tensor_b, tensor_c)
+    ):  # pyright: ignore[reportUnnecessaryIsInstance]
         msg = "Tensors must have type=torch.Tensor."
         raise TypeError(msg)
     shapes = (tensor_a.shape, tensor_b.shape, tensor_c.shape)
