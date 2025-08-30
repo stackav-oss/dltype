@@ -2,19 +2,13 @@
 Contributions are welcome & instructions on how to set up the package for local development are below.
 
 ## Development Setup
-The development environment is managed via `uv`, please install it before proceeding.
-
-Create the uv project's virtual environment with:
-
-```bash
-uv sync
-```
-
-And then install the `dltype` package as a local editable extension using:
+The development environment is managed via `uv`.
+Plase run the setup script to install it and sync the project dependencies before developing.
 
 ```bash
-uv pip install -e .
+bash ./setup.sh
 ```
+
 
 The unit tests can be run with:
 

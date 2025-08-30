@@ -6,4 +6,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 uv python install
 uv sync
-uv run pre-commit install --install-hooks
+
+if ! command -v pre-commit >/dev/null 2>&1
+then
+    echo "WARNING: pre-commit not found, please install it for a better dev experience"
+    echo "pip install pre-commit"
+    echo "pre-commit install --install-hooks"
+else
+    pre-commit install --install-hooks
+fi
