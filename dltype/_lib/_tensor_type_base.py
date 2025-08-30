@@ -79,7 +79,7 @@ class TensorTypeBase:
         self._literal_dims = tuple(
             (idx, dim.evaluate({}))
             for idx, dim in enumerate(self.expected_shape)
-            if dim.is_literal and idx != self.multiaxis_index  # pyright: ignore[reportUnnecessaryComparison] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+            if dim.is_literal and idx != self.multiaxis_index  # pyright: ignore[reportUnnecessaryComparison]
         )
 
     @override

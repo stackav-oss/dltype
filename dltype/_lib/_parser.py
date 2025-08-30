@@ -162,7 +162,7 @@ class DLTypeDimensionExpression:
             elif isinstance(token, str):
                 # intentionally allow KeyError to be raised if the identifier is not in the scope
                 stack.append(scope[token])
-            elif isinstance(token, _DLTypeOperator):  # pyright: ignore[reportUnnecessaryIsInstance] # TODO(DX-2313): Address pyright errors ignored to migrate from mypy # fmt: skip
+            elif isinstance(token, _DLTypeOperator):  # pyright: ignore[reportUnnecessaryIsInstance]
                 b = stack.pop()
                 a = stack.pop()
                 stack.append(token.evaluate(a, b))

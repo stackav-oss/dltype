@@ -9,10 +9,16 @@ from dltype._lib._dependency_utilities import (
 
 if is_numpy_available():
     from dltype._lib._numpy_tensors import (
+        UInt8Tensor as NumPyUInt8Tensor,
+        UInt16Tensor as NumPyUInt16Tensor,
+        UInt32Tensor as NumPyUInt32Tensor,
+        UInt64Tensor as NumPyUInt64Tensor,
         Int8Tensor as NumPyInt8Tensor,
         Int16Tensor as NumPyInt16Tensor,
         Int32Tensor as NumPyInt32Tensor,
         Int64Tensor as NumPyInt64Tensor,
+        SignedIntTensor as NumPySignedIntTensor,
+        UnsignedIntTensor as NumPyUnsignedIntTensor,
         IntTensor as NumPyIntTensor,
         IEEE754HalfFloatTensor as NumPyIEEE754HalfFloatTensor,
         Float16Tensor as NumPyFloat16Tensor,
@@ -24,10 +30,16 @@ if is_numpy_available():
 
 if is_torch_available():
     from dltype._lib._torch_tensors import (
+        UInt8Tensor as TorchUInt8Tensor,
+        UInt16Tensor as TorchUInt16Tensor,
+        UInt32Tensor as TorchUInt32Tensor,
+        UInt64Tensor as TorchUInt64Tensor,
         Int8Tensor as TorchInt8Tensor,
         Int16Tensor as TorchInt16Tensor,
         Int32Tensor as TorchInt32Tensor,
         Int64Tensor as TorchInt64Tensor,
+        SignedIntTensor as TorchSignedIntTensor,
+        UnsignedIntTensor as TorchUnsignedIntTensor,
         IntTensor as TorchIntTensor,
         IEEE754HalfFloatTensor as TorchIEEE754HalfFloatTensor,
         BFloat16Tensor as TorchBFloat16Tensor,
@@ -55,6 +67,22 @@ class Int8Tensor(_tensor_type_base.TensorTypeBase):
     )
 
 
+class UInt8Tensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an unsigned 8-bit integer tensor type."""
+
+    DTYPES = (
+        (*TorchUInt8Tensor.DTYPES, *NumPyUInt8Tensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchUInt8Tensor.DTYPES
+            if is_torch_available()
+            else NumPyUInt8Tensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
 class Int16Tensor(_tensor_type_base.TensorTypeBase):
     """A class to represent a 16-bit integer tensor type."""
 
@@ -65,6 +93,22 @@ class Int16Tensor(_tensor_type_base.TensorTypeBase):
             TorchInt16Tensor.DTYPES
             if is_torch_available()
             else NumPyInt16Tensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
+class UInt16Tensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an unsigned 16-bit integer tensor type."""
+
+    DTYPES = (
+        (*TorchUInt16Tensor.DTYPES, *NumPyUInt16Tensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchUInt16Tensor.DTYPES
+            if is_torch_available()
+            else NumPyUInt16Tensor.DTYPES
             if is_numpy_available()
             else raise_for_missing_dependency()
         )
@@ -87,6 +131,22 @@ class Int32Tensor(_tensor_type_base.TensorTypeBase):
     )
 
 
+class UInt32Tensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an unsigned 32-bit integer tensor type."""
+
+    DTYPES = (
+        (*TorchUInt32Tensor.DTYPES, *NumPyUInt32Tensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchUInt32Tensor.DTYPES
+            if is_torch_available()
+            else NumPyUInt32Tensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
 class Int64Tensor(_tensor_type_base.TensorTypeBase):
     """A class to represent a 64-bit integer tensor type."""
 
@@ -103,8 +163,56 @@ class Int64Tensor(_tensor_type_base.TensorTypeBase):
     )
 
 
-class IntTensor(_tensor_type_base.TensorTypeBase):
+class UInt64Tensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an unsigned 64-bit integer tensor type."""
+
+    DTYPES = (
+        (*TorchUInt64Tensor.DTYPES, *NumPyUInt64Tensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchUInt64Tensor.DTYPES
+            if is_torch_available()
+            else NumPyUInt64Tensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
+class SignedIntTensor(_tensor_type_base.TensorTypeBase):
     """A class to represent an integer tensor of any precision (8 bit, 16 bit, 32 bit and 64 bit)."""
+
+    DTYPES = (
+        (*TorchSignedIntTensor.DTYPES, *NumPySignedIntTensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchIntTensor.DTYPES
+            if is_torch_available()
+            else NumPySignedIntTensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
+class UnsignedIntTensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an unsigned integer tensor of any precision (8 bit, 16 bit, 32 bit and 64 bit)."""
+
+    DTYPES = (
+        (*TorchUnsignedIntTensor.DTYPES, *NumPyUnsignedIntTensor.DTYPES)
+        if is_torch_available() and is_numpy_available()
+        else (
+            TorchUnsignedIntTensor.DTYPES
+            if is_torch_available()
+            else NumPyUnsignedIntTensor.DTYPES
+            if is_numpy_available()
+            else raise_for_missing_dependency()
+        )
+    )
+
+
+class IntTensor(_tensor_type_base.TensorTypeBase):
+    """A class to represent an integer tensor (signed or unsigned) of any precision (8 bit, 16 bit, 32 bit and 64 bit)."""
 
     DTYPES = (
         (*TorchIntTensor.DTYPES, *NumPyIntTensor.DTYPES)
@@ -229,10 +337,16 @@ class BoolTensor(_tensor_type_base.TensorTypeBase):
 
 
 __all__ = [
+    "UInt8Tensor",
+    "UInt16Tensor",
+    "UInt32Tensor",
+    "UInt64Tensor",
     "Int8Tensor",
     "Int16Tensor",
     "Int32Tensor",
     "Int64Tensor",
+    "UnsignedIntTensor",
+    "SignedIntTensor",
     "IntTensor",
     "IEEE754HalfFloatTensor",
     "BFloat16Tensor",
