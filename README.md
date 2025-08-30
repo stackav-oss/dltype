@@ -15,6 +15,16 @@ In particular, we support two functions that beartype/jaxtype do not:
 - ONNX/torch.compile Compatible: Works seamlessly with model export and compilation workflows.
 - Symbolic Dimensions: Support for named dimensions that enforce consistency.
 
+## Installation
+
+Install dltype through pip
+```bash
+pip3 install dltype
+```
+
+> [!NOTE]
+> dltype does not depend explicitly on torch or numpy, but you must have at least one of them installed at import time otherwise the import will fail.
+
 ## Usage
 
 Type hints are evaluated in a context in source-code order, so any references to dimension symbols must exist before an expression is evaluated.
