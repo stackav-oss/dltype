@@ -15,7 +15,7 @@ _logger: Final = logging.getLogger(__name__)
 EvaluatedDimensionT: TypeAlias = dict[str, int]
 
 
-def _maybe_warn_runtime(runtime_ns: int) -> None:
+def _maybe_warn_runtime(runtime_ns: int) -> bool:
     return runtime_ns > _constants.MAX_ACCEPTABLE_EVALUATION_TIME_NS
 
 

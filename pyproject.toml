@@ -6,6 +6,7 @@ dev = [
   "ruff>=0.12.0",
   "torch>=1.4.0",
   "setuptools>=60.0.0",
+  "pyright>=1.1.404"
 ]
 
 [project]
@@ -26,3 +27,10 @@ torch = ["torch>=1.4.0"]
 [project.urls]
 homepage = "https://github.com/stackav-oss/dltype"
 repository = "https://github.com/stackav-oss/dltype.git"
+
+[tool.pyright]
+exclude = []
+ignore = []
+include = ["dltype"]
+reportUnnecessaryTypeIgnoreComment = "error"
+typeCheckingMode = "strict"

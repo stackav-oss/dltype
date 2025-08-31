@@ -25,22 +25,22 @@ if _deps.is_numpy_available() and _deps.is_torch_available():
     import numpy.typing as npt
     import torch
 
-    DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]
-    DLtypeDtypeT: typing.TypeAlias = torch.dtype | npt.DTypeLike
+    DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]  # pyright: ignore[reportRedeclaration]
+    DLtypeDtypeT: typing.TypeAlias = torch.dtype | npt.DTypeLike  # pyright: ignore[reportRedeclaration]
     SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor, np.ndarray}
 elif _deps.is_numpy_available():
     import numpy as np
     import numpy.typing as npt
 
-    DLtypeTensorT: typing.TypeAlias = npt.NDArray[typing.Any]
-    DLtypeDtypeT: typing.TypeAlias = npt.DTypeLike
-    SUPPORTED_TENSOR_TYPES: typing.Final = {np.ndarray}
+    DLtypeTensorT: typing.TypeAlias = npt.NDArray[typing.Any]  # pyright: ignore[reportRedeclaration]
+    DLtypeDtypeT: typing.TypeAlias = npt.DTypeLike  # pyright: ignore[reportRedeclaration]
+    SUPPORTED_TENSOR_TYPES: typing.Final = {np.ndarray}  # pyright: ignore[reportConstantRedefinition, reportGeneralTypeIssues]
 elif _deps.is_torch_available():
     import torch
 
-    DLtypeTensorT: typing.TypeAlias = torch.Tensor
-    DLtypeDtypeT: typing.TypeAlias = torch.dtype
-    SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor}
+    DLtypeTensorT: typing.TypeAlias = torch.Tensor  # pyright: ignore[reportRedeclaration]
+    DLtypeDtypeT: typing.TypeAlias = torch.dtype  # pyright: ignore[reportRedeclaration]
+    SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor}  # pyright: ignore[reportConstantRedefinition, reportGeneralTypeIssues]
 else:
     _deps.raise_for_missing_dependency()
 
@@ -163,7 +163,7 @@ class TensorTypeBase:
 
             return tensor
 
-        if _deps.is_numpy_available() and typing.get_origin(source_type) is np.ndarray:
+        if _deps.is_numpy_available() and typing.get_origin(source_type) is np.ndarray:  # pyright: ignore[reportPossiblyUnboundVariable]
             dtypes = _resolve_numpy_dtype(source_type)
             if self.DTYPES and any(dtype not in self.DTYPES for dtype in dtypes):
                 msg = f"Invalid numpy array dtype=<{dtypes}> expected ({'|'.join(map(str, self.DTYPES))})"
@@ -171,7 +171,7 @@ class TensorTypeBase:
             # numpy arrays don't implement isinstance() because the type is actually a
             # parameterized generic alias and not a concrete type. We need to check the origin instead.
             # This is a bit of a hack, but we still get the correct type hint in the end because we check against the dtype of the tensor first.
-            source_type = np.ndarray
+            source_type = np.ndarray  # pyright: ignore[reportPossiblyUnboundVariable]
 
         return core_schema.with_info_after_validator_function(
             validate_tensor,
