@@ -8,10 +8,12 @@ from pydantic_core import core_schema
 from typing_extensions import override
 
 from dltype._lib import (
-    _parser,
-    _errors,
     _constants,
     _dltype_context,
+    _errors,
+    _parser,
+)
+from dltype._lib import (
     _dependency_utilities as _deps,
 )
 
@@ -19,9 +21,9 @@ if typing.TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler, ValidationInfo
 
 if _deps.is_numpy_available() and _deps.is_torch_available():
-    import torch
     import numpy as np
     import numpy.typing as npt
+    import torch
 
     DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]
     DLtypeDtypeT: typing.TypeAlias = torch.dtype | npt.DTypeLike

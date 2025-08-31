@@ -2,11 +2,11 @@
 
 import numpy as np
 
-from dltype._lib._tensor_type_base import TensorTypeBase
 from dltype._lib._dependency_utilities import (
     is_np_float128_available,
     is_np_longdouble_available,
 )
+from dltype._lib._tensor_type_base import TensorTypeBase
 
 
 class UInt8Tensor(TensorTypeBase):

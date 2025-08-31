@@ -1,8 +1,8 @@
 """Utilities to handle optional dependencies in dltype."""
 
-from functools import cache
 from collections.abc import Callable
-from typing import TypeVar, ParamSpec, NoReturn
+from functools import cache
+from typing import NoReturn, ParamSpec, TypeVar
 
 Ret = TypeVar("Ret")
 P = ParamSpec("P")
