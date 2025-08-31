@@ -1,8 +1,8 @@
 """Utilities to handle optional dependencies in dltype."""
 
 from collections.abc import Callable
-from functools import cache
 from typing import NoReturn, ParamSpec, TypeVar
+from functools import cache
 
 Ret = TypeVar("Ret")
 P = ParamSpec("P")
@@ -17,10 +17,12 @@ def _empty_wrapper(fn: Callable[P, Ret]) -> Callable[P, Ret]:
 try:
     import torch
 
-    torch_jit_unused = torch.jit.unused  # re-export for compatibility
+    # re-export for compatibility
+    torch_jit_unused = torch.jit.unused  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 except ImportError:
     torch_jit_unused = _empty_wrapper
     torch = None
+
 
 try:
     import numpy as np
@@ -42,28 +44,28 @@ def is_numpy_available() -> bool:
 
 @cache
 def is_np_float128_available() -> bool:
-    _FLOAT128_AVAILABLE = False
+    _float_128_available = False
     if is_numpy_available():
         try:
             # Check if float128 is available (may not be supported on all platforms)
-            _ = np.float128
-            _FLOAT128_AVAILABLE = True
+            _ = np.float128  # pyright: ignore[reportOptionalMemberAccess]
+            _float_128_available = True
         except AttributeError:
             pass
-    return _FLOAT128_AVAILABLE
+    return _float_128_available
 
 
 @cache
 def is_np_longdouble_available() -> bool:
-    _LONGDOUBLE_AVAILABLE = False
+    _longdouble_available = False
     if is_numpy_available():
         try:
             # Check if longdouble is available (may not be supported on all platforms)
-            _ = np.longdouble
-            _LONGDOUBLE_AVAILABLE = True
+            _ = np.longdouble  # pyright: ignore[reportOptionalMemberAccess]
+            _longdouble_available = True
         except AttributeError:
             pass
-    return _LONGDOUBLE_AVAILABLE
+    return _longdouble_available
 
 
 def raise_for_missing_dependency() -> NoReturn:
@@ -82,4 +84,4 @@ def is_torch_scripting() -> bool:
     if not is_torch_available():
         return False
 
-    return torch.jit.is_scripting()
+    return torch.jit.is_scripting()  # pyright: ignore[reportOptionalMemberAccess, reportPrivateImportUsage]

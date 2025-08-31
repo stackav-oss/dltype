@@ -16,7 +16,7 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
-    Union,  # pyright: ignore[reportDeprecated]
+    Union,
     cast,
     get_args,
     get_origin,
@@ -62,7 +62,7 @@ class _DLTypeAnnotation(NamedTuple):
         args = get_args(hint)
 
         # Handle Optional[T] types (Union[T, None] or Union[T, NoneType])
-        if origin is Union:  # pyright: ignore[reportDeprecated]
+        if origin is Union:
             # Get the non-None type from the Union
             non_none_types = [t for t in args if t not in {type(None), None}]
 
@@ -181,7 +181,7 @@ def dltyped(  # noqa: C901, PLR0915
             return func
 
         @wraps(func)
-        @_dependency_utilities.torch_jit_unused
+        @_dependency_utilities.torch_jit_unused  # pyright: ignore[reportUnknownMemberType]
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # noqa: C901, PLR0912
             __tracebackhide__ = not _constants.DEBUG_MODE
             nonlocal signature
@@ -288,8 +288,8 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
     def _inner_dltyped_namedtuple(cls: type[NT]) -> type[NT]:
         # NOTE: NamedTuple isn't actually a class, it's a factory function that returns a new class so we can't use issubclass here
         if not (
-            isinstance(cls, type) and hasattr(cls, "_fields") and issubclass(cls, tuple)
-        ):  # pyright: ignore[reportUnnecessaryIsInstance]
+            isinstance(cls, type) and hasattr(cls, "_fields") and issubclass(cls, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
             msg = f"Expected a NamedTuple class, got {cls}"
             raise TypeError(msg)
 

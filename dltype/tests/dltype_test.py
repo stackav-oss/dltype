@@ -1,4 +1,4 @@
-# pyright: reportPrivateUsage=false
+# pyright: reportPrivateUsage=false, reportUnknownMemberType=false
 """Tests for common types used in deep learning."""
 
 import re
@@ -19,6 +19,7 @@ import dltype
 
 np_rand = np.random.RandomState(42).rand
 NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]
+NPIntArrayT: TypeAlias = npt.NDArray[np.int32 | np.uint16 | np.uint32 | np.uint8]
 
 
 class _RaisesInfo(NamedTuple):
@@ -474,7 +475,7 @@ def test_onnx_export() -> None:
     with NamedTemporaryFile() as f:
         torch.onnx.export(
             _DummyModule(),
-            torch.rand(1, 2, 3, 4),
+            (torch.rand(1, 2, 3, 4),),
             f.name,
             input_names=["input"],
             output_names=["output"],
@@ -486,7 +487,7 @@ def test_onnx_export() -> None:
         with pytest.raises(TypeError):
             torch.onnx.export(
                 _DummyModule(),
-                torch.rand(1, 2, 3),
+                (torch.rand(1, 2, 3),),
                 f.name,
                 input_names=["input"],
                 output_names=["output"],
@@ -1308,8 +1309,8 @@ def test_signed_vs_unsigned() -> None:
 
     @dltype.dltyped()
     def signed_vs_unsigned(
-        x: Annotated[NPFloatArrayT, dltype.SignedIntTensor["x"]],
-        y: Annotated[NPFloatArrayT, dltype.UnsignedIntTensor["x"]],
+        x: Annotated[NPIntArrayT, dltype.SignedIntTensor["x"]],
+        y: Annotated[NPIntArrayT, dltype.UnsignedIntTensor["x"]],
     ) -> Annotated[torch.Tensor, dltype.IntTensor["x"]]:
         return torch.from_numpy((x * y).astype(np.uint8))
 
@@ -1317,7 +1318,8 @@ def test_signed_vs_unsigned() -> None:
 
     np.testing.assert_allclose(
         signed_vs_unsigned(
-            np.array([6], dtype=np.int32), np.array([8], dtype=np.uint32)
+            np.array([6], dtype=np.int32),  # pyright: ignore[reportUnknownArgumentType]
+            np.array([8], dtype=np.uint32),
         ).numpy(),
         np.array([48], dtype=np.uint8),
     )
@@ -1337,9 +1339,9 @@ def test_bit_widths() -> None:
 
     @dltype.dltyped()
     def various_bit_widths(
-        x: Annotated[NPFloatArrayT, dltype.UInt16Tensor["x"]],
+        x: Annotated[NPIntArrayT, dltype.UInt16Tensor["x"]],
         y: Annotated[torch.Tensor, dltype.Int64Tensor["x"]],
-    ) -> Annotated[NPFloatArrayT, dltype.UInt8Tensor["x"]]:
+    ) -> Annotated[NPIntArrayT, dltype.UInt8Tensor["x"]]:
         return (x + y.numpy()).astype(np.uint8)
 
     # should work nominally
@@ -1354,11 +1356,11 @@ def test_bit_widths() -> None:
     # Should fail with a bad width on a numpy tensor
     with pytest.raises(dltype.DLTypeDtypeError):
         various_bit_widths(
-            np.array([6], dtype=np.uint32), np.array([8], dtype=np.int64)
+            np.array([6], dtype=np.uint32), torch.tensor([8], dtype=torch.int64)
         )
 
     # Should fail with a bad width on a torch tensor
     with pytest.raises(dltype.DLTypeDtypeError):
         various_bit_widths(
-            np.array([6], dtype=np.uint16), np.array([8], dtype=np.int32)
+            np.array([6], dtype=np.uint16), torch.tensor([8], dtype=torch.int32)
         )

@@ -1,3 +1,4 @@
+# pyright: reportPossiblyUnboundVariable=false
 """Tensor types work with either torch or numpy (maybe extended later)."""
 
 from dltype._lib import _tensor_type_base
