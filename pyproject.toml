@@ -22,7 +22,7 @@ version = "0.4.0"
 
 [project.optional-dependencies]
 numpy = ["numpy"]
-torch = ["torch>=1.4.0"]
+torch = ["torch>=1.11.0"]
 
 [project.urls]
 homepage = "https://github.com/stackav-oss/dltype"
