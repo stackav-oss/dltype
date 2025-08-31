@@ -2,7 +2,6 @@
 
 import typing
 
-
 # Constants
 PYDANTIC_INFO_KEY: typing.Final = "__dltype__"
 DEBUG_MODE: typing.Final = False

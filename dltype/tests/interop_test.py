@@ -1,22 +1,22 @@
 """Test that dltype can operate with either numpy or torch installed."""
 
-import pytest
-
-from unittest.mock import patch
-from importlib import reload
-from collections.abc import Iterator
-import dltype
 import sys
+from collections.abc import Iterator
+from importlib import reload
+from unittest.mock import patch
 
 import numpy
+import pytest
 import torch
+
+import dltype
 
 
 @pytest.fixture(autouse=True)
 def clear_cached_available_fns() -> Iterator[None]:
     """Clear cached functions to ensure fresh imports."""
     # Clear the cache for the dependency utilities
-    from dltype._lib._dependency_utilities import is_torch_available, is_numpy_available
+    from dltype._lib._dependency_utilities import is_numpy_available, is_torch_available
 
     is_torch_available.cache_clear()
     is_numpy_available.cache_clear()

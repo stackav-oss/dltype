@@ -8,9 +8,7 @@ import warnings
 from collections import deque
 from typing import Any, Final, NamedTuple, TypeAlias
 
-
-from dltype._lib import _parser, _constants, _tensor_type_base, _errors
-
+from dltype._lib import _constants, _errors, _parser, _tensor_type_base
 
 _logger: Final = logging.getLogger(__name__)
 

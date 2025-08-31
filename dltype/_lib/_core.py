@@ -24,13 +24,12 @@ from typing import (
     runtime_checkable,
 )
 
-
 from dltype._lib import (
     _constants,
-    _tensor_type_base,
+    _dependency_utilities,
     _dltype_context,
     _errors,
-    _dependency_utilities,
+    _tensor_type_base,
 )
 
 if TYPE_CHECKING:
