@@ -8,7 +8,9 @@ import warnings
 from collections import deque
 from typing import Any, Final, NamedTuple, TypeAlias
 
-from dltype._lib import _constants, _errors, _parser, _tensor_type_base
+
+from dltype._lib import _parser, _constants, _tensor_type_base, _errors, _dtypes
+
 
 _logger: Final = logging.getLogger(__name__)
 
@@ -23,11 +25,11 @@ class _ConcreteType(NamedTuple):
     """A class containing a tensor name, a tensor value, and its type."""
 
     tensor_arg_name: str
-    tensor: _tensor_type_base.DLtypeTensorT
+    tensor: _dtypes.DLtypeTensorT
     dltype_annotation: _tensor_type_base.TensorTypeBase
 
     def get_expected_shape(
-        self, tensor: _tensor_type_base.DLtypeTensorT
+        self, tensor: _dtypes.DLtypeTensorT
     ) -> tuple[_parser.DLTypeDimensionExpression, ...]:
         """Get the expected shape of the tensor.
 
@@ -77,7 +79,7 @@ class DLTypeContext:
         # mapping of dimension -> shape
         self.tensor_shape_map: EvaluatedDimensionT = {}
         # mapping of tensor name -> tensor type, used to check for duplicates
-        self.registered_tensor_dtypes: dict[str, _tensor_type_base.DLtypeDtypeT] = {}
+        self.registered_tensor_dtypes: dict[str, _dtypes.DLtypeDtypeT] = {}
 
     def add(
         self,
@@ -89,9 +91,7 @@ class DLTypeContext:
         if dltype_annotation.optional and tensor is None:
             # skip optional tensors
             return
-        if not any(
-            isinstance(tensor, T) for T in _tensor_type_base.SUPPORTED_TENSOR_TYPES
-        ):
+        if not any(isinstance(tensor, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
             msg = f"Invalid type {type(tensor)}"
             raise _errors.DLTypeError(msg)
         self._hinted_tensors.append(_ConcreteType(name, tensor, dltype_annotation))
@@ -106,11 +106,14 @@ class DLTypeContext:
             while self._hinted_tensors:
                 tensor_context = self._hinted_tensors.popleft()
                 # first check if the tensor could possibly have the right shape
-                tensor_context.dltype_annotation.check(tensor_context.tensor)
+                tensor_context.dltype_annotation.check(
+                    tensor_context.tensor, tensor_name=tensor_context.tensor_arg_name
+                )
 
                 if tensor_context.tensor_arg_name in self.registered_tensor_dtypes:
-                    msg = f"[tensor={tensor_context.tensor_arg_name=}] Duplicate tensor name in type checking context!"
-                    raise _errors.DLTypeDuplicateError(msg)
+                    raise _errors.DLTypeDuplicateError(
+                        tensor_name=tensor_context.tensor_arg_name
+                    )
 
                 self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = (
                     tensor_context.tensor.dtype
@@ -139,7 +142,7 @@ class DLTypeContext:
         self,
         tensor_arg_name: str,
         expected_shape: tuple[_parser.DLTypeDimensionExpression, ...],
-        tensor: _tensor_type_base.DLtypeTensorT,
+        tensor: _dtypes.DLtypeTensorT,
     ) -> None:
         """Check if the tensor shape matches the expected shape."""
         __tracebackhide__ = not _constants.DEBUG_MODE
@@ -186,12 +189,19 @@ class DLTypeContext:
                 expected_result = dimension_expression.evaluate(self.tensor_shape_map)
             except KeyError as e:
                 missing_ref = e.args[0]
-                msg = f"[tensor={tensor_arg_name}] Missing reference '{missing_ref}' in {self.tensor_shape_map=}"
-                raise _errors.DLTypeInvalidReferenceError(msg) from e
+                raise _errors.DLTypeInvalidReferenceError(
+                    tensor_name=tensor_arg_name,
+                    missing_ref=missing_ref,
+                    current_context=self.tensor_shape_map,
+                ) from e
 
             if expected_result != actual_shape[dim_idx]:
-                msg = f"[tensor={tensor_arg_name}] Invalid shape at {dim_idx=} actual={actual_shape[dim_idx]} expected {dimension_expression}={expected_result}"
-                raise _errors.DLTypeShapeError(msg)
+                raise _errors.DLTypeShapeError(
+                    tensor_name=tensor_arg_name,
+                    index=dim_idx,
+                    expected_shape=expected_result,
+                    actual=actual_shape[dim_idx],
+                )
 
             if dimension_expression.identifier not in self.tensor_shape_map:
                 self.tensor_shape_map[dimension_expression.identifier] = actual_shape[

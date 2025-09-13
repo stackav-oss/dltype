@@ -30,6 +30,7 @@ from dltype._lib import (
     _dltype_context,
     _errors,
     _tensor_type_base,
+    _dtypes,
 )
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ R = TypeVar("R")
 class _DLTypeAnnotation(NamedTuple):
     """A class representing a type annotation for a tensor."""
 
-    tensor_type_hint: type[_tensor_type_base.DLtypeTensorT]
+    tensor_type_hint: type[_dtypes.DLtypeTensorT]
     dltype_annotation: _tensor_type_base.TensorTypeBase
 
     @classmethod
@@ -90,10 +91,8 @@ class _DLTypeAnnotation(NamedTuple):
 
         # Ensure the base type is a supported tensor type
         tensor_type, dltype_hint = args[0], args[1]
-        if not any(
-            T in tensor_type.mro() for T in _tensor_type_base.SUPPORTED_TENSOR_TYPES
-        ):
-            msg = f"Invalid base type=<{tensor_type}> in DLType hint, expected a subtype of {_tensor_type_base.SUPPORTED_TENSOR_TYPES}"
+        if not any(T in tensor_type.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES):
+            msg = f"Invalid base type=<{tensor_type}> in DLType hint, expected a subtype of {_dtypes.SUPPORTED_TENSOR_TYPES}"
             raise TypeError(msg)
 
         dltype_hint.optional = optional
@@ -217,8 +216,9 @@ def dltyped(  # noqa: C901, PLR0915
                 ctx.tensor_shape_map = scope_provider.get_dltype_scope()
                 _logger.debug("Using unbound scope provider %s", ctx.tensor_shape_map)
             elif scope_provider is not None:
-                msg = f"Invalid scope provider {scope_provider=} expected DLTypeScopeProvider or 'self'"
-                raise _errors.DLTypeScopeProviderError(msg)
+                raise _errors.DLTypeScopeProviderError(
+                    bad_scope_provider=scope_provider
+                )
 
             for name in dltype_hints:
                 if name == _return_key:
@@ -236,7 +236,7 @@ def dltyped(  # noqa: C901, PLR0915
                     ctx.add(name, tensor, maybe_annotation.dltype_annotation)
                 elif any(
                     isinstance(_actual_args[name], T)
-                    for T in _tensor_type_base.SUPPORTED_TENSOR_TYPES
+                    for T in _dtypes.SUPPORTED_TENSOR_TYPES
                 ):
                     warnings.warn(
                         f"[argument={name}] is missing a DLType hint",
@@ -254,10 +254,7 @@ def dltyped(  # noqa: C901, PLR0915
                         _return_key, retval, maybe_return_annotation.dltype_annotation
                     )
                     ctx.assert_context()
-                elif any(
-                    isinstance(retval, T)
-                    for T in _tensor_type_base.SUPPORTED_TENSOR_TYPES
-                ):
+                elif any(isinstance(retval, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
                     warnings.warn(
                         f"[{_return_key}] is missing a DLType hint",
                         UserWarning,
@@ -265,8 +262,8 @@ def dltyped(  # noqa: C901, PLR0915
                     )
             except _errors.DLTypeError as e:
                 # include the full function signature in the error message
-                msg = f"Error in {func.__name__}{signature}: {e}\n"
-                raise e.__class__(msg) from e
+                e.set_context(f"{func.__name__}{signature}")
+                raise
             return retval
 
         return wrapper
@@ -329,8 +326,8 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
             try:
                 ctx.assert_context()
             except _errors.DLTypeError as e:
-                msg = f"Error in {cls.__name__} constructor: {e}\n"
-                raise e.__class__(msg) from e
+                e.set_context(cls.__name__)
+                raise e
 
             return instance
 
@@ -396,8 +393,8 @@ def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
             try:
                 ctx.assert_context()
             except _errors.DLTypeError as e:
-                msg = f"Error in {cls.__name__} field validation: {e}"
-                raise e.__class__(msg) from e
+                e.set_context(cls.__name__)
+                raise e
 
         # Replace the __init__ method
         cls.__init__ = new_init

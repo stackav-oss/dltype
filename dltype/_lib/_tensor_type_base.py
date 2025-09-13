@@ -15,34 +15,15 @@ from dltype._lib import (
 )
 from dltype._lib import (
     _dependency_utilities as _deps,
+    _dtypes,
 )
 
 if typing.TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler, ValidationInfo
 
-if _deps.is_numpy_available() and _deps.is_torch_available():
+if _deps.is_numpy_available():
     import numpy as np
     import numpy.typing as npt
-    import torch
-
-    DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]  # pyright: ignore[reportRedeclaration]
-    DLtypeDtypeT: typing.TypeAlias = torch.dtype | npt.DTypeLike  # pyright: ignore[reportRedeclaration]
-    SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor, np.ndarray}
-elif _deps.is_numpy_available():
-    import numpy as np
-    import numpy.typing as npt
-
-    DLtypeTensorT: typing.TypeAlias = npt.NDArray[typing.Any]  # pyright: ignore[reportRedeclaration]
-    DLtypeDtypeT: typing.TypeAlias = npt.DTypeLike  # pyright: ignore[reportRedeclaration]
-    SUPPORTED_TENSOR_TYPES: typing.Final = {np.ndarray}  # pyright: ignore[reportConstantRedefinition, reportGeneralTypeIssues]
-elif _deps.is_torch_available():
-    import torch
-
-    DLtypeTensorT: typing.TypeAlias = torch.Tensor  # pyright: ignore[reportRedeclaration]
-    DLtypeDtypeT: typing.TypeAlias = torch.dtype  # pyright: ignore[reportRedeclaration]
-    SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor}  # pyright: ignore[reportConstantRedefinition, reportGeneralTypeIssues]
-else:
-    _deps.raise_for_missing_dependency()
 
 
 def _resolve_numpy_dtype(
@@ -67,7 +48,7 @@ class TensorTypeBase:
     It may also choose to validate the datatype of the tensor.
     """
 
-    DTYPES: typing.ClassVar[tuple[DLtypeDtypeT, ...]] = ()
+    DTYPES: typing.ClassVar[tuple[_dtypes.DLtypeDtypeT, ...]] = ()
     """The torch dtypes that this tensor type asserts to contain. (empty for any dtype)."""
 
     def __init__(self, shape: str | None, optional: bool = False) -> None:
@@ -144,11 +125,11 @@ class TensorTypeBase:
         """Get the Pydantic core schema for this type."""
 
         def validate_tensor(
-            tensor: DLtypeTensorT, info: ValidationInfo
-        ) -> DLtypeTensorT:
+            tensor: _dtypes.DLtypeTensorT, info: ValidationInfo
+        ) -> _dtypes.DLtypeTensorT:
             """Validate the tensor."""
             __tracebackhide__ = not _constants.DEBUG_MODE
-            self.check(tensor)
+            self.check(tensor, info.field_name or "anonymous")
 
             if _constants.PYDANTIC_INFO_KEY not in info.data:
                 info.data[_constants.PYDANTIC_INFO_KEY] = (
@@ -166,8 +147,11 @@ class TensorTypeBase:
         if _deps.is_numpy_available() and typing.get_origin(source_type) is np.ndarray:  # pyright: ignore[reportPossiblyUnboundVariable]
             dtypes = _resolve_numpy_dtype(source_type)
             if self.DTYPES and any(dtype not in self.DTYPES for dtype in dtypes):
-                msg = f"Invalid numpy array dtype=<{dtypes}> expected ({'|'.join(map(str, self.DTYPES))})"
-                raise _errors.DLTypeDtypeError(msg)
+                raise _errors.DLTypeDtypeError(
+                    tensor_name=handler.field_name,
+                    expected=self.DTYPES,
+                    received=dtypes,
+                )
             # numpy arrays don't implement isinstance() because the type is actually a
             # parameterized generic alias and not a concrete type. We need to check the origin instead.
             # This is a bit of a hack, but we still get the correct type hint in the end because we check against the dtype of the tensor first.
@@ -179,7 +163,9 @@ class TensorTypeBase:
             field_name=handler.field_name,
         )
 
-    def check(self, tensor: DLtypeTensorT) -> None:
+    def check(
+        self, tensor: _dtypes.DLtypeTensorT, tensor_name: str = "anonymous"
+    ) -> None:
         """Check if the tensor matches this type."""
         # Basic validation for multi-axis dimensions
         __tracebackhide__ = not _constants.DEBUG_MODE
@@ -187,17 +173,26 @@ class TensorTypeBase:
             # Min required dimensions = expected shape length + extra dimensions - 1 (the multi-axis placeholder)
             min_required_dims = len(self.expected_shape) - 1
             if len(tensor.shape) < min_required_dims:
-                msg = f"Invalid number of dimensions: {tensor.shape=}, expected at least {min_required_dims}"
-                raise _errors.DLTypeShapeError(msg)
+                raise _errors.DLTypeNDimsError(
+                    expected=min_required_dims,
+                    actual=tensor.ndim,
+                    tensor_name=tensor_name,
+                )
 
         # Standard case: exact dimension count match
         elif len(tensor.shape) != len(self.expected_shape):
-            msg = f"Invalid number of dimensions {tensor.shape=} {self.expected_shape=}"
-            raise _errors.DLTypeShapeError(msg)
+            raise _errors.DLTypeNDimsError(
+                expected=len(self.expected_shape),
+                actual=tensor.ndim,
+                tensor_name=tensor_name,
+            )
 
         if self.DTYPES and tensor.dtype not in self.DTYPES:
-            msg = f"Invalid dtype {tensor.dtype} expected {self.DTYPES}"
-            raise _errors.DLTypeDtypeError(msg)
+            raise _errors.DLTypeDtypeError(
+                expected=self.DTYPES,
+                received={tensor.dtype},
+                tensor_name=tensor_name,
+            )
 
         for idx, dim in self._literal_dims:
             # Adjust index if multiaxis exists and is before this dimension
@@ -207,5 +202,9 @@ class TensorTypeBase:
                 adjusted_idx += len(tensor.shape) - len(self.expected_shape)
 
             if tensor.shape[adjusted_idx] != dim:
-                msg = f"[tensor=tensor] Invalid shape at dim_idx={adjusted_idx} actual={tensor.shape[adjusted_idx]} expected {dim}"
-                raise _errors.DLTypeShapeError(msg)
+                raise _errors.DLTypeShapeError(
+                    tensor_name=tensor_name,
+                    index=adjusted_idx,
+                    expected_shape=dim,
+                    actual=tensor.shape[adjusted_idx],
+                )
