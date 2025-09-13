@@ -1,11 +1,12 @@
 """Utilities to handle optional dependencies in dltype."""
 
 from collections.abc import Callable
-from typing import NoReturn, ParamSpec, TypeVar
+import typing
+
 from functools import cache
 
-Ret = TypeVar("Ret")
-P = ParamSpec("P")
+Ret = typing.TypeVar("Ret")
+P = typing.ParamSpec("P")
 
 
 def _empty_wrapper(fn: Callable[P, Ret]) -> Callable[P, Ret]:
@@ -68,7 +69,7 @@ def is_np_longdouble_available() -> bool:
     return _longdouble_available
 
 
-def raise_for_missing_dependency() -> NoReturn:
+def raise_for_missing_dependency() -> typing.NoReturn:
     """Raise an ImportError if neither torch nor numpy is available."""
     if not is_torch_available() and not is_numpy_available():
         raise ImportError(

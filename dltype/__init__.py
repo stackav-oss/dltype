@@ -20,11 +20,12 @@ from dltype._lib._errors import (
     DLTypeInvalidReferenceError,
     DLTypeScopeProviderError,
     DLTypeShapeError,
+    DLTypeNDimsError,
 )
 from dltype._lib._tensor_type_base import (
-    SUPPORTED_TENSOR_TYPES,
     TensorTypeBase,
 )
+from dltype._lib._dtypes import SUPPORTED_TENSOR_TYPES
 
 if is_torch_available() and is_numpy_available():
     from dltype._lib._universal_tensors import (
@@ -107,6 +108,7 @@ __all__ = [
     "DLTypeInvalidReferenceError",
     "DLTypeDuplicateError",
     "DLTypeDtypeError",
+    "DLTypeNDimsError",
     "DLTypeScopeProvider",
     "TensorTypeBase",
     "dltyped",

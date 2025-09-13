@@ -73,9 +73,17 @@ def inconsistent_shape_function(
 BAD_DIMENSION_RX: Final = r"Invalid number of dimensions"
 
 
-def bad_dimension_error(tensor_name: str, dimension_index: int, actual: int) -> str:
+def bad_dimension_error(
+    tensor_name: str, *, idx: int, expected: int, actual: int
+) -> str:
     return re.escape(
-        f"[tensor={tensor_name}] Invalid shape at dim_idx={dimension_index} actual={actual} expected "
+        f"Invalid tensor shape, tensor={tensor_name} dim={idx} expected={expected} actual={actual}"
+    )
+
+
+def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
+    return re.escape(
+        f"Invalid number of dimensions, tensor={tensor_name} expected ndims={expected} actual={actual}"
     )
 
 
@@ -93,20 +101,26 @@ def bad_dimension_error(tensor_name: str, dimension_index: int, actual: int) -> 
             bad_function,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("return", 0, 1),
+                regex=bad_dimension_error("return", expected=3, idx=0, actual=1),
             ),
             id="bad_func_4D",
         ),
         pytest.param(
             torch.rand(1, 2, 3),
             bad_function,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor", expected=4, actual=3),
+            ),
             id="bad_func_3D",
         ),
         pytest.param(
             torch.rand(1, 2, 3, 4, 5),
             bad_function,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor", expected=4, actual=5),
+            ),
             id="bad_func_5D",
         ),
         pytest.param(
@@ -118,7 +132,10 @@ def bad_dimension_error(tensor_name: str, dimension_index: int, actual: int) -> 
         pytest.param(
             torch.rand(1, 2, 3),
             good_function,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor", expected=4, actual=3),
+            ),
             id="good_func_3D",
         ),
         pytest.param(
@@ -189,7 +206,10 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             torch.rand(1, 2, 3, 4),
             torch.rand(1, 2, 3),
             _TestBaseModel,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor_2", expected=4, actual=3),
+            ),
             id="bad_tensors",
         ),
         pytest.param(
@@ -198,7 +218,7 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             _TestBaseModel,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor_2", 3, 5),
+                regex=bad_dimension_error("tensor_2", idx=3, expected=4, actual=5),
             ),
             id="bad_tensors_2",
         ),
@@ -229,7 +249,7 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             _TestBaseModel2,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor_2", 0, 1),
+                regex=bad_dimension_error("tensor_2", idx=0, expected=4, actual=1),
             ),
             id="bad_tensors_4",
         ),
@@ -239,7 +259,7 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             _TestBaseModel2,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor_2", 2, 1),
+                regex=bad_dimension_error("tensor_2", idx=2, expected=2, actual=1),
             ),
             id="good_tensors_4",
         ),
@@ -254,7 +274,10 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             np_rand(1, 2, 3, 4),
             np_rand(1, 2, 3),
             _TestBaseModelWithNumpy,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor_2", expected=4, actual=3),
+            ),
             id="bad_tensors_numpy",
         ),
         pytest.param(
@@ -263,7 +286,7 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             _TestBaseModelWithNumpy,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor_2", 3, 5),
+                regex=bad_dimension_error("tensor_2", idx=3, expected=4, actual=5),
             ),
             id="bad_tensors_numpy_2",
         ),
@@ -273,7 +296,7 @@ class _TestBaseModelWithNumpy(BaseModel, frozen=True):
             _TestBaseModelWithNumpy,
             _RaisesInfo(
                 exception_type=dltype.DLTypeDtypeError,
-                regex=r"Invalid dtype int32 expected",
+                regex=r"Invalid dtype.*got=int32",
             ),
             id="bad_dtype",
         ),
@@ -310,12 +333,18 @@ def numpy_function(
         ),
         pytest.param(
             np.zeros((1, 2, 3)),
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor", expected=4, actual=3),
+            ),
             id="bad_tensors",
         ),
         pytest.param(
             np.zeros((1, 2, 3, 5, 6)),
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("tensor", expected=4, actual=5),
+            ),
             id="bad_tensors_2",
         ),
     ],
@@ -431,7 +460,7 @@ def test_types(
             torch.rand(2, 2, 3, 9),
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor", 0, 2),
+                regex=bad_dimension_error("anonymous", idx=0, expected=1, actual=2),
             ),
             id="bad literal dim",
         ),
@@ -446,7 +475,7 @@ def test_types(
             torch.rand(3, 2, 3, 2),
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("tensor", 2, 3),
+                regex=bad_dimension_error("anonymous", idx=2, expected=2, actual=3),
             ),
             id="wildcard dim_2",
         ),
@@ -620,7 +649,10 @@ def func_with_min(
         pytest.param(
             torch.rand(1, 2, 3, 4),
             func_with_expression,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("input_tensor", expected=3, actual=4),
+            ),
             id="bad_expression",
         ),
         pytest.param(
@@ -644,7 +676,10 @@ def func_with_min(
         pytest.param(
             torch.rand(1, 2),
             func_with_min,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("input_tensor", expected=3, actual=2),
+            ),
             id="min_expression_4",
         ),
     ],
@@ -756,7 +791,7 @@ def func_with_anon_wildcard(
             func_with_axis_wildcard,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("_", 1, 2),
+                regex=bad_dimension_error("_", idx=1, expected=3, actual=2),
             ),
             id="wildcard_axis_3",
         ),
@@ -785,7 +820,10 @@ def func_with_anon_wildcard(
             torch.rand(1, 2),
             None,
             func_with_mid_tensor_wildcard,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("input_tensor", expected=3, actual=2),
+            ),
             id="mid-tensor not enough dims",
         ),
         pytest.param(
@@ -794,7 +832,7 @@ def func_with_anon_wildcard(
             func_with_mid_tensor_wildcard,
             _RaisesInfo(
                 exception_type=dltype.DLTypeShapeError,
-                regex=bad_dimension_error("return", 0, 2),
+                regex=bad_dimension_error("return", idx=0, actual=2, expected=1),
             ),
             id="mid-tensor bad function impl",
         ),
@@ -823,7 +861,10 @@ def func_with_anon_wildcard(
             torch.rand(1, 2, 3, 4),
             True,
             func_with_anon_wildcard,
-            _RaisesInfo(exception_type=dltype.DLTypeShapeError, regex=BAD_DIMENSION_RX),
+            _RaisesInfo(
+                exception_type=dltype.DLTypeNDimsError,
+                regex=bad_ndim_error("return", expected=2, actual=3),
+            ),
             id="anon wildcard fail",
         ),
     ],
@@ -934,7 +975,7 @@ def test_named_axis() -> None:
     ) -> None:
         return None
 
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         func_with_misordered_identifier(torch.rand(1, 2, 3, 4))
 
     with pytest.raises(dltype.DLTypeInvalidReferenceError):
@@ -1045,7 +1086,7 @@ def test_optional_type_handling() -> None:
     torch.testing.assert_close(optional_tensor_func(input_tensor), input_tensor)
 
     # Should fail with incorrect shape
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         optional_tensor_func(torch.rand(2, 3, 4))
 
     # Test with a function that returns an optional tensor
@@ -1097,7 +1138,7 @@ def test_optional_type_handling() -> None:
     assert model(None, mask) is None
 
     # Should still validate shapes when tensors are provided
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         model(torch.rand(2, 3, 4), None)
 
     with pytest.raises(dltype.DLTypeShapeError):
@@ -1113,7 +1154,7 @@ def test_named_tuple_handling() -> None:
 
     MyNamedTuple(torch.rand(2, 3, 4, 4), torch.randint(0, 2, (2, 4, 4)), 1)
 
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         MyNamedTuple(torch.rand(2, 3, 4), torch.randint(0, 2, (2, 4, 4)), 1)
 
     with pytest.raises(dltype.DLTypeDtypeError):
@@ -1129,7 +1170,7 @@ def test_named_tuple_handling() -> None:
     MyOptionalNamedTuple(torch.rand(2, 3, 4, 4), None)
     MyOptionalNamedTuple(torch.rand(2, 3, 4, 4), torch.randint(0, 2, (2, 4, 4)))
 
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         MyOptionalNamedTuple(torch.rand(2, 3, 4), None)
 
     with pytest.raises(dltype.DLTypeDtypeError):
@@ -1193,7 +1234,7 @@ def test_annotated_dataclass() -> None:
         tensor=torch.rand(1, 2, 3, 4), tensor_2=torch.randint(0, 10, (1, 2, 3, 4))
     )
 
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         OptionalAnnotatedDataclass(tensor=torch.rand(1, 2, 3))
 
     with pytest.raises(dltype.DLTypeDtypeError):
@@ -1204,12 +1245,12 @@ def test_annotated_dataclass() -> None:
 
 def test_improper_base_model_construction() -> None:
     """Test that improper construction of BaseModel raises an error."""
-    with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid numpy array dtype"):
+    with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid dtype"):
 
         class _BadModel(BaseModel):  # pyright: ignore[reportUnusedClass]
             tensor: Annotated[npt.NDArray[np.float32], dltype.IntTensor["b c h w"]]
 
-    with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid numpy array dtype"):
+    with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid dtype"):
 
         class _BadModel2(BaseModel):  # pyright: ignore[reportUnusedClass]
             tensor: Annotated[
@@ -1239,7 +1280,7 @@ def test_class_with_forward_reference() -> None:
     """Test that a class with a forward reference to itself raises an error."""
     _MyClass.create(torch.rand(1, 2, 3, 4))
 
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         _MyClass.create(torch.rand(1, 2, 3))
 
     # inner classes do not evaluate the forward reference correctly, warn the user
@@ -1297,7 +1338,7 @@ def test_scalar() -> None:
     scalar_func(torch.tensor(3.14))
 
     # Should fail with a non-scalar tensor
-    with pytest.raises(dltype.DLTypeShapeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         scalar_func(torch.tensor([3.14]))
 
     with pytest.raises(SyntaxError, match="Invalid shape shape_string=''"):
