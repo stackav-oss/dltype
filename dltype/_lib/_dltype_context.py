@@ -6,7 +6,7 @@ import logging
 import time
 import warnings
 from collections import deque
-from typing import Any, Final, NamedTuple, TypeAlias
+from typing import cast, Any, Final, NamedTuple, TypeAlias
 
 
 from dltype._lib import _parser, _constants, _tensor_type_base, _errors, _dtypes
@@ -92,8 +92,9 @@ class DLTypeContext:
             # skip optional tensors
             return
         if not any(isinstance(tensor, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
-            msg = f"Invalid type {type(tensor)}"
-            raise _errors.DLTypeError(msg)
+            raise _errors.DLTypeUnsupportedTensorTypeError(
+                actual_type=cast("type[Any]", type(tensor))
+            )
         self._hinted_tensors.append(_ConcreteType(name, tensor, dltype_annotation))
 
     def assert_context(self) -> None:

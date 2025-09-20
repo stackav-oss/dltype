@@ -1,14 +1,102 @@
 """Benchmark dltype vs. beartype vs. manual checking vs. baseline."""
 
-from contextlib import (
-    suppress,  # noqa: F401 (used for suppressing exceptions in benchmarks)
-)
-from typing import Annotated
-
+from enum import Enum, auto
+from typing import Annotated, Final, NamedTuple
+from inspect import signature
 import torch
 from torch.utils.benchmark import Measurement, Timer
-
+from contextlib import suppress
 import dltype
+
+
+class BenchmarkMode(str, Enum):
+    """What conditions to apply to the benchmark arguments."""
+
+    correct = auto()
+    incorrect_shape = auto()
+    incorrect_datatype = auto()
+    incorrect_shape_and_datatype = auto()
+
+
+class SetupTensors(NamedTuple):
+    """Collection of tensors that will become the function arguments for benchmark code."""
+
+    tensor_a: torch.Tensor | None
+    tensor_b: torch.Tensor | None
+    tensor_c: torch.Tensor | None
+
+
+def setup_code(mode: BenchmarkMode) -> SetupTensors:
+    match mode:
+        case BenchmarkMode.correct:
+            return SetupTensors(
+                tensor_a=torch.rand(8, 2, 3, 4),
+                tensor_b=torch.rand(8, 2, 3, 4),
+                tensor_c=torch.rand(8, 2, 3, 4),
+            )
+        case BenchmarkMode.incorrect_shape:
+            return SetupTensors(
+                tensor_a=torch.rand(8, 2, 3, 4),
+                tensor_b=torch.rand(7, 2, 3, 4),
+                tensor_c=torch.rand(8, 2, 3),
+            )
+        case BenchmarkMode.incorrect_datatype:
+            return SetupTensors(
+                tensor_a=torch.rand(8, 2, 3, 4).int(),
+                tensor_b=torch.rand(8, 2, 3, 4).int(),
+                tensor_c=torch.rand(8, 2, 3, 4).int(),
+            )
+        case BenchmarkMode.incorrect_shape_and_datatype:
+            return SetupTensors(
+                tensor_a=torch.rand(8, 2, 3, 4).int(),
+                tensor_b=None,
+                tensor_c=torch.rand(8, 2, 3).int(),
+            )
+
+
+class BenchmarkParams(NamedTuple):
+    mode: BenchmarkMode
+    function_name: str
+    function_args: tuple[str, ...] | None
+    add_decorator: bool
+    expected_error: type[Exception] | None
+
+
+class BenchmarkResult(NamedTuple):
+    params: BenchmarkParams
+    measurement: Measurement
+
+
+class BenchmarkFunc:
+    def __init__(self, params: BenchmarkParams) -> None:
+        suppressed_prefix = (
+            f"with {suppress.__name__}({params.expected_error.__name__}): "
+            if params.expected_error
+            else ""
+        )
+        tensor_args = ", ".join(SetupTensors._fields)
+        maybe_decorated_function = (
+            f"dltype.dltyped()({params.function_name})"
+            if params.add_decorator
+            else f"{params.function_name}"
+        )
+        bench = f"{maybe_decorated_function}({', '.join(params.function_args) if params.function_args else ''})"
+
+        self._timer = Timer(
+            setup=f"{tensor_args} = setup_code(BenchmarkMode.{params.mode.name})",
+            stmt=f"{suppressed_prefix}{bench}",
+            globals=globals()
+            | (
+                {params.expected_error.__name__: params.expected_error}
+                if params.expected_error
+                else {}
+            ),
+        )
+        self._params = params
+
+    def __call__(self) -> BenchmarkResult:
+        print(f"running bench={self._params.mode=} {self._params.function_name=}")
+        return BenchmarkResult(self._params, self._timer.adaptive_autorange())
 
 
 def baseline(
@@ -46,8 +134,9 @@ def manual_shape_check(
 ) -> torch.Tensor:
     """A function that takes a tensor and returns a tensor."""
     if not all(
-        isinstance(tensor, torch.Tensor) for tensor in (tensor_a, tensor_b, tensor_c)
-    ):  # pyright: ignore[reportUnnecessaryIsInstance]
+        isinstance(tensor, torch.Tensor)  # pyright: ignore[reportUnnecessaryIsInstance]
+        for tensor in (tensor_a, tensor_b, tensor_c)
+    ):
         msg = "Tensors must have type=torch.Tensor."
         raise TypeError(msg)
     shapes = (tensor_a.shape, tensor_b.shape, tensor_c.shape)
@@ -111,141 +200,96 @@ def anonymous_axis_baseline(
 @dltype.dltyped()
 def dltyped_anonymous_axis(
     tensor_a: Annotated[torch.Tensor, dltype.FloatTensor["*batch h w"]],
-) -> Annotated[torch.Tensor, dltype.FloatTensor["*batch 1 h w"]]:
+) -> Annotated[torch.Tensor, dltype.FloatTensor["*batch 2 h w"]]:
     """A function that takes a tensor and adds a second dimension to it."""
     return torch.stack([tensor_a, tensor_a], dim=1)
 
 
 if __name__ == "__main__":
-    setup_codes = [
-        (
-            "correct",
-            """
-        tensor_a = torch.rand(8, 2, 3, 4)
-        tensor_b = torch.rand(8, 2, 3, 4)
-        tensor_c = torch.rand(8, 2, 3, 4)
-        """,
-        ),
-        (
-            "incorrect shape",
-            """
-        tensor_a = torch.rand(8, 2, 3, 4)
-        tensor_b = torch.rand(7, 2, 3, 4)
-        tensor_c = torch.rand(8, 2, 3)
-        """,
-        ),
-        (
-            "incorrect data type",
-            """
-        tensor_a = torch.rand(8, 2, 3, 4).int()
-        tensor_b = torch.rand(8, 2, 3, 4).int()
-        tensor_c = torch.rand(8, 2, 3, 4).int()
-        """,
-        ),
-        (
-            "incorrect shape and data type",
-            """
-        tensor_a = torch.rand(8, 2, 3, 4).int()
-        tensor_b = None
-        tensor_c = torch.rand(8, 2, 3).int()
-        """,
-        ),
+    all_functions: Final = [
+        baseline,
+        manual_shape_check,
+        dltype_function,
+        dltype_decorated,
+        expression_baseline,
+        dltyped_with_expression,
+        anonymous_axis_baseline,
+        dltyped_anonymous_axis,
     ]
+    needs_decorator = frozenset({dltype_function})
+    error_override = {
+        manual_shape_check.__name__: {
+            BenchmarkMode.incorrect_shape: TypeError,
+            BenchmarkMode.incorrect_datatype: TypeError,
+            BenchmarkMode.incorrect_shape_and_datatype: TypeError,
+        },
+        baseline.__name__: {
+            BenchmarkMode.incorrect_shape: RuntimeError,
+            BenchmarkMode.incorrect_datatype: RuntimeError,
+            BenchmarkMode.incorrect_shape_and_datatype: TypeError,
+        },
+        expression_baseline.__name__: {
+            BenchmarkMode.incorrect_shape_and_datatype: AttributeError
+        },
+        anonymous_axis_baseline.__name__: {
+            BenchmarkMode.incorrect_shape_and_datatype: TypeError
+        },
+    }
 
-    summary_results: list[dict[str, Measurement]] = []
+    all_benchmarks: dict[BenchmarkMode, dict[str, BenchmarkFunc]] = {}
 
-    for bench_name, setup_code in setup_codes:
-        all_benchmarks: dict[str, Measurement] = {}
-        # Benchmark basic function using torch.benchmark
-        all_benchmarks["baseline"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(RuntimeError, TypeError): baseline(tensor_a, tensor_b, tensor_c)",
-            globals=globals(),
-        ).adaptive_autorange()
+    for mode in BenchmarkMode:
+        for func in all_functions:
+            expected_error = None
+            match mode:
+                case BenchmarkMode.correct:
+                    expected_error = None
+                case BenchmarkMode.incorrect_shape:
+                    expected_error = dltype.DLTypeShapeError
+                case BenchmarkMode.incorrect_datatype:
+                    expected_error = dltype.DLTypeDtypeError
+                case BenchmarkMode.incorrect_shape_and_datatype:
+                    expected_error = dltype.DLTypeError
 
-        # # Benchmark manual checking using torch.benchmark
-        all_benchmarks["manual_shape_check"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(TypeError): manual_shape_check(tensor_a, tensor_b, tensor_c)",
-            globals=globals(),
-        ).adaptive_autorange()
+            if func.__name__ in error_override:
+                expected_error = error_override[func.__name__].get(mode, expected_error)
 
-        # # Benchmark dltype function using torch.benchmark
-        all_benchmarks["dltype_with_overhead"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(TypeError): dltype.dltyped()(dltype_function)(tensor_a, tensor_b, tensor_c)",
-            globals=globals(),
-        ).adaptive_autorange()
+            all_benchmarks.setdefault(mode, {})[func.__name__] = BenchmarkFunc(
+                BenchmarkParams(
+                    mode=mode,
+                    function_name=func.__name__,
+                    function_args=tuple(map(str, signature(func).parameters.keys())),
+                    add_decorator=func in needs_decorator,
+                    expected_error=expected_error,
+                )
+            )
 
-        ## Benchmark pre-annotated dltype function using torch.benchmark
-        all_benchmarks["dltype_decorated"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(TypeError): dltype_decorated(tensor_a, tensor_b, tensor_c)",
-            globals=globals(),
-        ).adaptive_autorange()
+    summary_results: dict[BenchmarkMode, dict[str, BenchmarkResult]] = {}
 
-        all_benchmarks["expression_baseline"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(Exception): expression_baseline(tensor_a, tensor_b)",
-            globals=globals(),
-        ).adaptive_autorange()
+    for mode, mode_runs in all_benchmarks.items():
+        for func_name, benchmark in mode_runs.items():
+            summary_results.setdefault(mode, {})[func_name] = benchmark()
 
-        all_benchmarks["dltyped_with_expression"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(TypeError): dltyped_with_expression(tensor_a, tensor_b)",
-            globals=globals(),
-        ).adaptive_autorange()
+    for results in summary_results.values():
+        for result in results.values():
+            print("-" * 10)
+            print(
+                f"Function: {result.params.function_name} Setup: {result.params.mode}"
+            )
+            print(result.measurement)
+            print("-" * 10)
 
-        all_benchmarks["anonymous_axis_baseline"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(Exception): anonymous_axis_baseline(tensor_a)",
-            globals=globals(),
-        ).adaptive_autorange()
+    max_func_length = max(len(func.__name__) + 3 for func in all_functions)
+    max_mode_length = max(len(mode.name) + 3 for mode in BenchmarkMode)
 
-        all_benchmarks["dltyped_anonymous_axis"] = Timer(
-            setup=setup_code,
-            stmt="with suppress(TypeError): dltyped_anonymous_axis(tensor_a)",
-            globals=globals(),
-        ).adaptive_autorange()
+    print(f"{'Benchmark':<{max_func_length}}", end="")
+    for mode in BenchmarkMode:
+        print(f"{mode.name:>{max_mode_length}} ", end="")
 
-        print("================================================================")
-        for name, benchmark in all_benchmarks.items():
-            print("----------------------------------------------------------------")
-            print(f"Function: {name} Setup: {bench_name}")
-            print(benchmark)
-        print("================================================================")
-        summary_results.append(all_benchmarks)
-
-    # print a table with the function benchmarked on the top row and setup on the left column
-
-    # Extract function names and setup names
-    functions = list(summary_results[0].keys())
-    setups = [setup[0] for setup in setup_codes]
-
-    # Define a consistent column width
-    func_col_width = 25
-    setup_col_width = 20
-
-    # Print header row
-    print(f"{'Function':<{func_col_width}}", end="")
-    for setup in setups:
-        print(f"{setup:<{setup_col_width}}", end="")
-    print()
-
-    # Print separator
-    print("-" * func_col_width, end="")
-    for _ in setups:
-        print("-" * setup_col_width, end="")
-    print()
-
-    # Print data rows (now each row is a function)
-    for func in functions:
-        print(f"{func:<{func_col_width}}", end="")
-        for i, _ in enumerate(setups):
-            # Get the measurement for this function and setup
-            measurement = summary_results[i][func]
-            mean_time_us = measurement.mean * 1e6  # Convert to microseconds
-            # Format the value with consistent width
-            value = f"{mean_time_us:.3f} uS"
-            print(f"{value:<{setup_col_width}}", end="")
+    for func in all_functions:
         print()
+        print(f"{func.__name__:<{max_func_length}}", end="")
+        for mode in BenchmarkMode:
+            result = summary_results[mode][func.__name__]
+            value = f"{result.measurement.mean * 1e6:.2f} uS"
+            print(f"{value:>{max_mode_length}}", end="")
