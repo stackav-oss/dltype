@@ -21,6 +21,7 @@ from dltype._lib._errors import (
     DLTypeScopeProviderError,
     DLTypeShapeError,
     DLTypeNDimsError,
+    DLTypeUnsupportedTensorTypeError,
 )
 from dltype._lib._tensor_type_base import (
     TensorTypeBase,
@@ -104,6 +105,7 @@ __all__ = [
     "SUPPORTED_TENSOR_TYPES",
     "DLTypeError",
     "DLTypeShapeError",
+    "DLTypeUnsupportedTensorTypeError",
     "DLTypeScopeProviderError",
     "DLTypeInvalidReferenceError",
     "DLTypeDuplicateError",

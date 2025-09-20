@@ -1405,3 +1405,8 @@ def test_bit_widths() -> None:
         various_bit_widths(
             np.array([6], dtype=np.uint16), torch.tensor([8], dtype=torch.int32)
         )
+
+
+def test_invalid_tensor_type_handling() -> None:
+    with pytest.raises(dltype.DLTypeUnsupportedTensorTypeError):
+        good_function([1, 2, 3])  # type: ignore (intentionally bypass static type checking)
