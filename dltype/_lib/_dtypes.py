@@ -1,6 +1,7 @@
 """Supported datatypes."""
 
 import typing
+
 from dltype._lib import (
     _dependency_utilities as _deps,
 )
@@ -21,9 +22,9 @@ elif _deps.is_torch_available() and not _deps.is_numpy_available():
     DLtypeDtypeT: typing.TypeAlias = torch.dtype  # pyright: ignore[reportRedeclaration]
     SUPPORTED_TENSOR_TYPES: typing.Final = {torch.Tensor}  # pyright: ignore[reportGeneralTypeIssues, reportConstantRedefinition]
 elif _deps.is_numpy_available() and _deps.is_torch_available():
-    import torch
     import numpy as np
     import numpy.typing as npt
+    import torch
 
     DLtypeTensorT: typing.TypeAlias = torch.Tensor | npt.NDArray[typing.Any]  # pyright: ignore[reportRedeclaration]
     DLtypeDtypeT: typing.TypeAlias = torch.dtype | npt.DTypeLike  # pyright: ignore[reportRedeclaration]

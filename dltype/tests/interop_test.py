@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from importlib import reload
 from unittest.mock import patch
 
-import numpy
+import numpy as np
 import pytest
 import torch
 
@@ -13,14 +13,13 @@ import dltype
 
 
 @pytest.fixture(autouse=True)
-def clear_cached_available_fns() -> Iterator[None]:
+def clear_cached_available_fns() -> None:
     """Clear cached functions to ensure fresh imports."""
     # Clear the cache for the dependency utilities
     from dltype._lib._dependency_utilities import is_numpy_available, is_torch_available
 
     is_torch_available.cache_clear()
     is_numpy_available.cache_clear()
-    yield
 
 
 @pytest.fixture(autouse=True)
@@ -33,56 +32,57 @@ def reset_modules() -> Iterator[None]:
     sys.modules.update(initial_modules)
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_missing_numpy() -> Iterator[None]:
     """Mock numpy as missing."""
     with patch("dltype._lib._dependency_utilities.np", None):
         yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_missing_torch() -> Iterator[None]:
     """Mock torch as missing."""
     with patch("dltype._lib._dependency_utilities.torch", None):
         yield
 
 
-def test_dltype_imports_without_torch(mock_missing_torch: None):
+def test_dltype_imports_without_torch(mock_missing_torch: None) -> None:
     """Test that dltype can be imported without torch."""
     del sys.modules["torch"]
 
     with pytest.raises(ImportError):
         reload(torch)
 
-    _reloaded_dltype = reload(dltype)
+    reloaded_dltype = reload(dltype)
 
-    assert _reloaded_dltype.BoolTensor.DTYPES == (numpy.bool_,)
+    assert (np.bool_,) == reloaded_dltype.BoolTensor.DTYPES
 
 
-def test_dltype_imports_without_numpy(mock_missing_numpy: None):
+def test_dltype_imports_without_numpy(mock_missing_numpy: None) -> None:
     """Test that dltype can be imported without numpy."""
     del sys.modules["numpy"]
 
     with pytest.raises(ImportError):
-        reload(numpy)
+        reload(np)
 
-    _reloaded_dltype = reload(dltype)
+    reloaded_dltype = reload(dltype)
 
-    assert _reloaded_dltype.BoolTensor.DTYPES == (torch.bool,)
+    assert (torch.bool,) == reloaded_dltype.BoolTensor.DTYPES
 
 
-def test_dltype_imports_with_both():
+def test_dltype_imports_with_both() -> None:
     """Test that dltype can be imported with both torch and numpy."""
-    _reloaded_dltype = reload(dltype)
-    assert _reloaded_dltype.BoolTensor.DTYPES == (
+    reloaded_dltype = reload(dltype)
+    assert (
         torch.bool,
-        numpy.bool_,
-    )
+        np.bool_,
+    ) == reloaded_dltype.BoolTensor.DTYPES
 
 
 def test_dltype_asserts_import_error_with_neither(
-    mock_missing_numpy: None, mock_missing_torch: None
-):
+    mock_missing_numpy: None,
+    mock_missing_torch: None,
+) -> None:
     """Test that dltype raises ImportError if neither torch nor numpy is available."""
 
     with pytest.raises(ImportError, match="Neither torch nor numpy is available"):

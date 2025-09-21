@@ -6,11 +6,9 @@ import logging
 import time
 import warnings
 from collections import deque
-from typing import cast, Any, Final, NamedTuple, TypeAlias
+from typing import Any, Final, NamedTuple, TypeAlias, cast
 
-
-from dltype._lib import _parser, _constants, _tensor_type_base, _errors, _dtypes
-
+from dltype._lib import _constants, _dtypes, _errors, _parser, _tensor_type_base
 
 _logger: Final = logging.getLogger(__name__)
 
@@ -29,9 +27,11 @@ class _ConcreteType(NamedTuple):
     dltype_annotation: _tensor_type_base.TensorTypeBase
 
     def get_expected_shape(
-        self, tensor: _dtypes.DLtypeTensorT
+        self,
+        tensor: _dtypes.DLtypeTensorT,
     ) -> tuple[_parser.DLTypeDimensionExpression, ...]:
-        """Get the expected shape of the tensor.
+        """
+        Get the expected shape of the tensor.
 
         We handle multi-axis dimensions by replacing the multi-axis placeholder with the actual shape.
         """
@@ -43,7 +43,8 @@ class _ConcreteType(NamedTuple):
                 self.dltype_annotation.multiaxis_index,
                 tensor.shape,
             )
-            # for multiaxis dimensions, we replace the values in the expected shape with the actual shape for every
+            # for multiaxis dimensions, we replace the values in the
+            # expected shape with the actual shape for every
             # dimension that is not the multiaxis dimension
             actual_shape = tensor.shape
 
@@ -64,13 +65,14 @@ class _ConcreteType(NamedTuple):
 
 
 class DLTypeContext:
-    """A class representing the current context for type hints.
+    """
+    A class representing the current context for type hints.
 
     Keeps track of a simple mapping of names to expected shapes and types.
 
-    This context can be evaluated at any time to check if the current actual shapes and types match the expected ones.
+    This context can be evaluated at any time to check if the current actual shapes and types match expected.
 
-    We evaluate in a first-come-first-correct manner where the first tensor of a given name is considered the correct one.
+    We evaluate in first-come-first-correct manner where the first tensor for a name is considered correct.
     """
 
     def __init__(self) -> None:
@@ -84,16 +86,16 @@ class DLTypeContext:
     def add(
         self,
         name: str,
-        tensor: Any,
+        tensor: Any,  # noqa: ANN401 (this truly can be anything in the case of a misused annotation)
         dltype_annotation: _tensor_type_base.TensorTypeBase,
-    ) -> None:  # noqa: ANN401
+    ) -> None:
         """Add a tensor to the context."""
         if dltype_annotation.optional and tensor is None:
             # skip optional tensors
             return
         if not any(isinstance(tensor, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
             raise _errors.DLTypeUnsupportedTensorTypeError(
-                actual_type=cast("type[Any]", type(tensor))
+                actual_type=cast("type[Any]", type(tensor)),
             )
         self._hinted_tensors.append(_ConcreteType(name, tensor, dltype_annotation))
 
@@ -108,19 +110,18 @@ class DLTypeContext:
                 tensor_context = self._hinted_tensors.popleft()
                 # first check if the tensor could possibly have the right shape
                 tensor_context.dltype_annotation.check(
-                    tensor_context.tensor, tensor_name=tensor_context.tensor_arg_name
+                    tensor_context.tensor,
+                    tensor_name=tensor_context.tensor_arg_name,
                 )
 
                 if tensor_context.tensor_arg_name in self.registered_tensor_dtypes:
                     raise _errors.DLTypeDuplicateError(
-                        tensor_name=tensor_context.tensor_arg_name
+                        tensor_name=tensor_context.tensor_arg_name,
                     )
 
-                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = (
-                    tensor_context.tensor.dtype
-                )
+                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = tensor_context.tensor.dtype
                 expected_shape = tensor_context.get_expected_shape(
-                    tensor_context.tensor
+                    tensor_context.tensor,
                 )
                 self._assert_tensor_shape(
                     tensor_context.tensor_arg_name,
@@ -133,8 +134,9 @@ class DLTypeContext:
             runtime_ns = end_t - start_t
             _logger.debug("Context evaluation took %d ns", runtime_ns)
             if _maybe_warn_runtime(runtime_ns):
+                max_ms = _constants.MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6
                 warnings.warn(
-                    f"Type checking took longer than expected {(runtime_ns) / 1e6:.2f}ms > {_constants.MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6}ms",
+                    f"Type checking took longer than expected {(runtime_ns) / 1e6:.2f}ms > {max_ms:.2f}ms",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -175,9 +177,7 @@ class DLTypeContext:
                     dimension_expression.identifier,
                     actual_shape[dim_idx],
                 )
-                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[
-                    dim_idx
-                ]
+                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[dim_idx]
                 continue
 
             _logger.debug(
@@ -205,6 +205,4 @@ class DLTypeContext:
                 )
 
             if dimension_expression.identifier not in self.tensor_shape_map:
-                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[
-                    dim_idx
-                ]
+                self.tensor_shape_map[dimension_expression.identifier] = actual_shape[dim_idx]

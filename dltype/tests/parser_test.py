@@ -33,7 +33,9 @@ from dltype._lib import _parser
     ],
 )
 def test_parse_expression(
-    expression: str, scope: dict[str, int], expected: int
+    expression: str,
+    scope: dict[str, int],
+    expected: int,
 ) -> None:
     assert _parser.expression_from_string(expression).evaluate(scope) == expected
 

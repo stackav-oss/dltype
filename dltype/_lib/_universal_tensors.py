@@ -279,7 +279,7 @@ class UnsignedIntTensor(_tensor_type_base.TensorTypeBase):
 
 
 class IntTensor(_tensor_type_base.TensorTypeBase):
-    """A class to represent an integer tensor (signed or unsigned) of any precision (8 bit, 16 bit, 32 bit and 64 bit)."""
+    """A class to represent an integer tensor (signed or unsigned) of any precision (8, 16, 32, 64 bit)."""
 
     DTYPES = (
         (*TorchIntTensor.DTYPES, *NumPyIntTensor.DTYPES)
@@ -295,9 +295,11 @@ class IntTensor(_tensor_type_base.TensorTypeBase):
 
 
 class IEEE754HalfFloatTensor(_tensor_type_base.TensorTypeBase):
-    """A class to represent half precision tensor types. Does not include special types such as bfloat16.
+    """
+    A class to represent half precision tensor types. Does not include special types such as bfloat16.
 
-    Use this type if bfloat16 causes issues for some reason and you need to prohibit its use."""
+    Use this type if bfloat16 causes issues for some reason and you need to prohibit its use.
+    """
 
     DTYPES = (
         (*TorchIEEE754HalfFloatTensor.DTYPES, *NumPyIEEE754HalfFloatTensor.DTYPES)
@@ -370,9 +372,11 @@ DoubleTensor = Float64Tensor
 
 
 class FloatTensor(_tensor_type_base.TensorTypeBase):
-    """A class to represent the superset of any floating point type of any precision.
+    """
+    A class to represent the superset of any floating point type of any precision.
 
-    This includes 16 bit, 32 bit, 64 bit, and optionally numpy's 128 bit if it is supported."""
+    This includes 16 bit, 32 bit, 64 bit, and optionally numpy's 128 bit if it is supported.
+    """
 
     DTYPES = (
         (*TorchFloatTensor.DTYPES, *NumpyFloatTensor.DTYPES)
@@ -404,23 +408,23 @@ class BoolTensor(_tensor_type_base.TensorTypeBase):
 
 
 __all__ = [
-    "UInt8Tensor",
-    "UInt16Tensor",
-    "UInt32Tensor",
-    "UInt64Tensor",
+    "BFloat16Tensor",
+    "BoolTensor",
+    "DoubleTensor",
+    "Float16Tensor",
+    "Float32Tensor",
+    "Float64Tensor",
+    "FloatTensor",
+    "IEEE754HalfFloatTensor",
     "Int8Tensor",
     "Int16Tensor",
     "Int32Tensor",
     "Int64Tensor",
-    "UnsignedIntTensor",
-    "SignedIntTensor",
     "IntTensor",
-    "IEEE754HalfFloatTensor",
-    "BFloat16Tensor",
-    "Float16Tensor",
-    "Float32Tensor",
-    "Float64Tensor",
-    "DoubleTensor",
-    "FloatTensor",
-    "BoolTensor",
+    "SignedIntTensor",
+    "UInt8Tensor",
+    "UInt16Tensor",
+    "UInt32Tensor",
+    "UInt64Tensor",
+    "UnsignedIntTensor",
 ]

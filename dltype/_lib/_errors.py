@@ -1,10 +1,10 @@
 """Errors for the dltype library."""
 
+import typing
 from abc import ABC, abstractmethod
 from collections import abc
-import typing
 
-from dltype._lib._dtypes import DLtypeDtypeT, SUPPORTED_TENSOR_TYPES
+from dltype._lib._dtypes import SUPPORTED_TENSOR_TYPES, DLtypeDtypeT
 
 
 class DLTypeError(TypeError, ABC):
@@ -91,7 +91,9 @@ class DLTypeDtypeError(DLTypeError):
         super().__init__(error_ctx=error_ctx)
 
     def __str__(self) -> str:
-        return f"Invalid dtype, tensor={self._tensor_name} expected one of ({', '.join(sorted(map(str, self._expected)))}) got={', '.join(sorted(map(str, self._received)))}"
+        expected = ",".join(sorted(map(str, self._expected)))
+        received = ",".join(sorted(map(str, self._received)))
+        return f"Invalid dtype, tensor={self._tensor_name} expected one of ({expected}) got={received}"
 
 
 class DLTypeDuplicateError(DLTypeError):
@@ -125,7 +127,8 @@ class DLTypeInvalidReferenceError(DLTypeError):
         super().__init__(error_ctx=error_ctx)
 
     def __str__(self) -> str:
-        return f"Invalid axis referenced before assignment tensor={self._tensor_name} missing_ref={self._missing_ref} valid_refs={', '.join(self._context.keys())}"
+        context = ", ".join(self._context.keys())
+        return f"Invalid axis referenced before assignment tensor={self._tensor_name} missing_ref={self._missing_ref} valid_refs={context}"
 
 
 class DLTypeScopeProviderError(DLTypeError):
