@@ -5,6 +5,22 @@
   "[yaml]": {
     "editor.formatOnSave": false
   },
+  "cSpell.words": [
+    "dltype",
+    "dltyped",
+    "tracebackhide",
+    "numpy",
+    "onnx",
+    "pytest",
+    "setuptools",
+    "pydantic",
+    "pyright",
+    "ndarray",
+    "ndims",
+    "multiaxis",
+    "allclose",
+    "popleft"
+  ],
   "editor.formatOnSave": true,
   "ruff.interpreter": [
     "${workspaceFolder}/.venv/bin/python"

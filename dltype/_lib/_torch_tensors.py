@@ -76,7 +76,7 @@ class UnsignedIntTensor(TensorTypeBase):
 
 
 class IntTensor(TensorTypeBase):
-    """A class to represent any integer (signed or unsigned) tensor type of any size (8 bit, 16 bit, 32 bit, and 64 bit)."""
+    """A class to represent any integer (signed or unsigned) tensor type of any size (8, 16, 32, and 64)."""
 
     DTYPES = (
         *UnsignedIntTensor.DTYPES,
@@ -91,7 +91,7 @@ class BFloat16Tensor(TensorTypeBase):
 
 
 class IEEE754HalfFloatTensor(TensorTypeBase):
-    """A dtype for 16 bit half-precision floats that comply with the IEE 754 specification (does not include bfloat16)."""
+    """A dtype for 16 bit half-precision floats that comply with the IEE 754 specification (excludes bf16)."""
 
     DTYPES = (
         torch.half,

@@ -14,11 +14,11 @@ dependencies = ["pydantic>=2.0"]
 description = "An extremely lightweight typing library for torch tensors or numpy arrays. Supports runtime shape checking and data type validation."
 keywords = ["pytorch", "numpy", "shape check", "type check"]
 license = "Apache-2.0"
-license-files = ["LICEN[CS]E.*"]
+license-files = ["LICENSE"]
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.5.1"
+version = "0.5.2"
 
 [project.optional-dependencies]
 numpy = ["numpy"]
@@ -34,3 +34,62 @@ ignore = []
 include = ["dltype"]
 reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
+
+[tool.ruff]
+indent-width = 4
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+line-ending = "lf"
+
+[tool.ruff.lint]
+extend-select = [
+  "ANN",
+  "ARG",
+  "B",
+  "BLE",
+  "C4",
+  "C90",
+  "COM",
+  "D",
+  "E",
+  "EM",
+  "ERA",
+  "F",
+  "FA",
+  "FBT",
+  "G",
+  "I",
+  "ICN",
+  "INP",
+  "ISC",
+  "LOG",
+  "N",
+  "NPY",
+  "PERF",
+  "PIE",
+  "PLE",
+  "PLR",
+  "PT",
+  "PTH",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "SIM",
+  "SLF",
+  "T20",
+  "TC",
+  "TID",
+  "TRY",
+  "W"
+]
+fixable = ["ALL"]
+ignore = ["D203", "D212", "D401", "E501", "PLR6301", "PLR0917"]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"dltype/tests/*" = ["D", "ARG", "FBT", "PLR2004", "T201"]

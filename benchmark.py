@@ -1,11 +1,13 @@
 """Benchmark dltype vs. beartype vs. manual checking vs. baseline."""
 
+from contextlib import suppress
 from enum import Enum, auto
-from typing import Annotated, Final, NamedTuple
 from inspect import signature
+from typing import Annotated, Final, NamedTuple
+
 import torch
 from torch.utils.benchmark import Measurement, Timer
-from contextlib import suppress
+
 import dltype
 
 
@@ -27,6 +29,7 @@ class SetupTensors(NamedTuple):
 
 
 def setup_code(mode: BenchmarkMode) -> SetupTensors:
+    """Set up tensors for the benchmark code."""
     match mode:
         case BenchmarkMode.correct:
             return SetupTensors(
@@ -55,6 +58,8 @@ def setup_code(mode: BenchmarkMode) -> SetupTensors:
 
 
 class BenchmarkParams(NamedTuple):
+    """Parameters for a benchmark run."""
+
     mode: BenchmarkMode
     function_name: str
     function_args: tuple[str, ...] | None
@@ -63,39 +68,39 @@ class BenchmarkParams(NamedTuple):
 
 
 class BenchmarkResult(NamedTuple):
+    """Result of a benchmark run."""
+
     params: BenchmarkParams
     measurement: Measurement
 
 
 class BenchmarkFunc:
+    """A dltype benchmark function taking params and returning a result of that benchmark when called."""
+
     def __init__(self, params: BenchmarkParams) -> None:
+        """Create a new benchmark function."""
         suppressed_prefix = (
-            f"with {suppress.__name__}({params.expected_error.__name__}): "
-            if params.expected_error
-            else ""
+            f"with {suppress.__name__}({params.expected_error.__name__}): " if params.expected_error else ""
         )
         tensor_args = ", ".join(SetupTensors._fields)
         maybe_decorated_function = (
-            f"dltype.dltyped()({params.function_name})"
-            if params.add_decorator
-            else f"{params.function_name}"
+            f"dltype.dltyped()({params.function_name})" if params.add_decorator else f"{params.function_name}"
         )
-        bench = f"{maybe_decorated_function}({', '.join(params.function_args) if params.function_args else ''})"
+        bench = (
+            f"{maybe_decorated_function}({', '.join(params.function_args) if params.function_args else ''})"
+        )
 
         self._timer = Timer(
             setup=f"{tensor_args} = setup_code(BenchmarkMode.{params.mode.name})",
             stmt=f"{suppressed_prefix}{bench}",
             globals=globals()
-            | (
-                {params.expected_error.__name__: params.expected_error}
-                if params.expected_error
-                else {}
-            ),
+            | ({params.expected_error.__name__: params.expected_error} if params.expected_error else {}),
         )
         self._params = params
 
     def __call__(self) -> BenchmarkResult:
-        print(f"running bench={self._params.mode=} {self._params.function_name=}")
+        """Run the benchmark and return the result."""
+        print(f"running bench={self._params.mode=} {self._params.function_name=}")  # noqa: T201
         return BenchmarkResult(self._params, self._timer.adaptive_autorange())
 
 
@@ -140,9 +145,7 @@ def manual_shape_check(
         msg = "Tensors must have type=torch.Tensor."
         raise TypeError(msg)
     shapes = (tensor_a.shape, tensor_b.shape, tensor_c.shape)
-    if not all(
-        tensor.dtype == torch.float32 for tensor in (tensor_a, tensor_b, tensor_c)
-    ):
+    if not all(tensor.dtype == torch.float32 for tensor in (tensor_a, tensor_b, tensor_c)):
         msg = "Tensors must have dtype=torch.float32."
         raise TypeError(msg)
     if {len(shape) for shape in shapes} != {4}:
@@ -229,10 +232,10 @@ if __name__ == "__main__":
             BenchmarkMode.incorrect_shape_and_datatype: TypeError,
         },
         expression_baseline.__name__: {
-            BenchmarkMode.incorrect_shape_and_datatype: AttributeError
+            BenchmarkMode.incorrect_shape_and_datatype: AttributeError,
         },
         anonymous_axis_baseline.__name__: {
-            BenchmarkMode.incorrect_shape_and_datatype: TypeError
+            BenchmarkMode.incorrect_shape_and_datatype: TypeError,
         },
     }
 
@@ -261,7 +264,7 @@ if __name__ == "__main__":
                     function_args=tuple(map(str, signature(func).parameters.keys())),
                     add_decorator=func in needs_decorator,
                     expected_error=expected_error,
-                )
+                ),
             )
 
     summary_results: dict[BenchmarkMode, dict[str, BenchmarkResult]] = {}
@@ -272,24 +275,22 @@ if __name__ == "__main__":
 
     for results in summary_results.values():
         for result in results.values():
-            print("-" * 10)
-            print(
-                f"Function: {result.params.function_name} Setup: {result.params.mode}"
-            )
-            print(result.measurement)
-            print("-" * 10)
+            print("-" * 10)  # noqa: T201
+            print(f"Function: {result.params.function_name} Setup: {result.params.mode}")  # noqa: T201
+            print(result.measurement)  # noqa: T201
+            print("-" * 10)  # noqa: T201
 
     max_func_length = max(len(func.__name__) + 3 for func in all_functions)
     max_mode_length = max(len(mode.name) + 3 for mode in BenchmarkMode)
 
-    print(f"{'Benchmark':<{max_func_length}}", end="")
+    print(f"{'Benchmark':<{max_func_length}}", end="")  # noqa: T201
     for mode in BenchmarkMode:
-        print(f"{mode.name:>{max_mode_length}} ", end="")
+        print(f"{mode.name:>{max_mode_length}} ", end="")  # noqa: T201
 
     for func in all_functions:
-        print()
-        print(f"{func.__name__:<{max_func_length}}", end="")
+        print()  # noqa: T201
+        print(f"{func.__name__:<{max_func_length}}", end="")  # noqa: T201
         for mode in BenchmarkMode:
             result = summary_results[mode][func.__name__]
             value = f"{result.measurement.mean * 1e6:.2f} uS"
-            print(f"{value:>{max_mode_length}}", end="")
+            print(f"{value:>{max_mode_length}}", end="")  # noqa: T201

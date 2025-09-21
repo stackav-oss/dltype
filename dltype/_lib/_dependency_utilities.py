@@ -1,8 +1,7 @@
 """Utilities to handle optional dependencies in dltype."""
 
-from collections.abc import Callable
 import typing
-
+from collections.abc import Callable
 from functools import cache
 
 Ret = typing.TypeVar("Ret")
@@ -45,39 +44,38 @@ def is_numpy_available() -> bool:
 
 @cache
 def is_np_float128_available() -> bool:
-    _float_128_available = False
+    float_128_available = False
     if is_numpy_available():
         try:
             # Check if float128 is available (may not be supported on all platforms)
             _ = np.float128  # pyright: ignore[reportOptionalMemberAccess]
-            _float_128_available = True
+            float_128_available = True
         except AttributeError:
             pass
-    return _float_128_available
+    return float_128_available
 
 
 @cache
 def is_np_longdouble_available() -> bool:
-    _longdouble_available = False
+    longdouble_available = False
     if is_numpy_available():
         try:
             # Check if longdouble is available (may not be supported on all platforms)
             _ = np.longdouble  # pyright: ignore[reportOptionalMemberAccess]
-            _longdouble_available = True
+            longdouble_available = True
         except AttributeError:
             pass
-    return _longdouble_available
+    return longdouble_available
 
 
 def raise_for_missing_dependency() -> typing.NoReturn:
     """Raise an ImportError if neither torch nor numpy is available."""
     if not is_torch_available() and not is_numpy_available():
-        raise ImportError(
-            "Neither torch nor numpy is available. Please install one of them to use dltype."
-        )
-    assert False, (
-        "Improper use of raise_for_missing_dependency, should only be called when both dependencies are missing."
-    )
+        msg = "Neither torch nor numpy is available. Please install one of them to use dltype."
+        raise ImportError(msg)
+
+    msg = "Improper use of raise_for_missing_dependency, should only be called when both dependencies are missing."
+    raise AssertionError(msg)
 
 
 def is_torch_scripting() -> bool:
