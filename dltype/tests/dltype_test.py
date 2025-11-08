@@ -1434,3 +1434,76 @@ def test_bit_widths() -> None:
 def test_invalid_tensor_type_handling() -> None:
     with pytest.raises(dltype.DLTypeUnsupportedTensorTypeError):
         good_function([1, 2, 3])  # type: ignore (intentionally bypass static type checking)
+
+
+ShapedTensorT: TypeAlias = Annotated[torch.Tensor, dltype.Float16Tensor["1 2 3"]]
+
+
+def test_type_alias() -> None:
+    @dltype.dltyped()
+    def function(tensor: ShapedTensorT) -> None:
+        print(tensor)
+
+    function(torch.empty((1, 2, 3), dtype=torch.float16))
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        function(torch.empty(1, 2, 3, dtype=torch.float32))
+
+
+ShapeT: TypeAlias = dltype.Shape[1, 2, ..., dltype.VariableAxis("last")]
+RGB: Final = dltype.ConstantAxis("RGB", 3)
+Batch: Final = dltype.AnonymousAxis("batch")
+ImgH: Final = dltype.VariableAxis("ImgH")
+ImgW: Final = dltype.VariableAxis("ImgW")
+
+ImgBatch: TypeAlias = dltype.Shape[Batch, RGB, ImgH, ImgW]
+
+
+def test_shaped_tensor() -> None:
+    @dltype.dltyped()
+    def func(
+        tensor: Annotated[torch.Tensor, dltype.FloatTensor[ShapeT]],
+        fail: bool = False,
+    ) -> Annotated[torch.Tensor, dltype.FloatTensor["1 2 ... last"]]:
+        return tensor if not fail else torch.empty(1, 2, 99)
+
+    assert str(ImgBatch) == "*batch RGB=3 ImgH ImgW"
+
+    @dltype.dltyped()
+    def func2(
+        arg: Annotated[torch.Tensor, dltype.UInt8Tensor[ImgBatch]],
+    ) -> Annotated[
+        torch.Tensor,
+        dltype.UInt8Tensor[
+            dltype.Shape[
+                Batch,
+                ImgH * ImgW,
+                RGB,
+            ]
+        ],
+    ]:
+        if arg.ndim > 3:
+            return arg.view(*arg.shape[:-3], arg.shape[-2] * arg.shape[-1], 3)
+
+        return arg.view(arg.shape[-2] * arg.shape[-1], 3)
+
+    func(torch.empty(1, 2, 9))
+    func(torch.empty(1, 2, 3, 9))
+
+    func2(torch.empty(3, 4, 5, dtype=torch.uint8))
+    func2(torch.empty(1, 3, 4, 5, dtype=torch.uint8))
+    func2(torch.empty(1, 2, 3, 4, 5, dtype=torch.uint8))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        func(torch.empty(0, 2, 8))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        func(torch.empty(1, 2, 4), True)
+
+    class PydanticObj(BaseModel):
+        tensor_a: Annotated[torch.Tensor, dltype.FloatTensor[dltype.Shape[4, 4]]]
+
+    PydanticObj(tensor_a=torch.zeros((4, 4)))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        PydanticObj(tensor_a=torch.ones((3, 3)))
