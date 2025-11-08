@@ -26,6 +26,15 @@ from dltype._lib._errors import (
     DLTypeShapeError,
     DLTypeUnsupportedTensorTypeError,
 )
+from dltype._lib._symbolic_expressions import (
+    AnonymousAxis,
+    ConstantAxis,
+    LiteralAxis,
+    Max,
+    Min,
+    Shape,
+    VariableAxis,
+)
 from dltype._lib._tensor_type_base import (
     TensorTypeBase,
 )
@@ -105,9 +114,11 @@ __all__ = [
     "DEBUG_MODE",
     "MAX_ACCEPTABLE_EVALUATION_TIME_NS",
     "SUPPORTED_TENSOR_TYPES",
+    "AnonymousAxis",
     "BFloat16Tensor",
     "BFloat16Tensor",
     "BoolTensor",
+    "ConstantAxis",
     "DLTypeDtypeError",
     "DLTypeDuplicateError",
     "DLTypeError",
@@ -128,6 +139,10 @@ __all__ = [
     "Int32Tensor",
     "Int64Tensor",
     "IntTensor",
+    "LiteralAxis",
+    "Max",
+    "Min",
+    "Shape",
     "SignedIntTensor",
     "TensorTypeBase",
     "UInt8Tensor",
@@ -135,6 +150,7 @@ __all__ = [
     "UInt32Tensor",
     "UInt64Tensor",
     "UnsignedIntTensor",
+    "VariableAxis",
     "dltyped",
     "dltyped_dataclass",
     "dltyped_namedtuple",

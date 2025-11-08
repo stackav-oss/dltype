@@ -13,6 +13,7 @@ from dltype._lib import (
     _dtypes,
     _errors,
     _parser,
+    _symbolic_expressions,
 )
 from dltype._lib import (
     _dependency_utilities as _deps,
@@ -116,9 +117,9 @@ class TensorTypeBase:
         return tuple(processed_shapes)
 
     @classmethod
-    def __class_getitem__(cls, shape_string: str) -> TensorTypeBase:
+    def __class_getitem__(cls, shape_string: str | None | _symbolic_expressions.Shape) -> TensorTypeBase:
         """Get the type of the tensor."""
-        return cls(shape_string)
+        return cls(shape_string if isinstance(shape_string, str | None) else str(shape_string))
 
     def __get_pydantic_core_schema__(
         self,

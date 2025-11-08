@@ -102,6 +102,13 @@ FloatTensor["... channels h w"] # anonymous dimension will not be matched across
 DoubleTensor["batch *channels features"] # named dimension which can be matched across tensors
 ```
 
+### Statically Defined Shapes
+
+```python
+Shape[AnonymouousAxis("batch"), ConstantAxis("rgb", 3), VariableAxis("imgh"), VariableAxis("imgw")]
+Shape[..., VariableAxis("N"), 4]
+```
+
 ## Argument and return typing
 
 ```python
