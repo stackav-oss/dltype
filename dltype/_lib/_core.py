@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import inspect
+import itertools
 import logging
 import warnings
-from functools import wraps
+from functools import lru_cache, wraps
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -43,11 +44,11 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class _DLTypeAnnotation(NamedTuple):
+class DLTypeAnnotation(NamedTuple):
     """A class representing a type annotation for a tensor."""
 
-    tensor_type_hint: type[_dtypes.DLtypeTensorT]
-    dltype_annotation: _tensor_type_base.TensorTypeBase
+    tensor_type_hint: type[_dtypes.DLtypeTensorT] | None
+    dltype_annotation: _tensor_type_base.TensorTypeBase | None
 
     @classmethod
     def from_hint(
@@ -55,10 +56,10 @@ class _DLTypeAnnotation(NamedTuple):
         hint: type | None,
         *,
         optional: bool = False,
-    ) -> _DLTypeAnnotation | None:
+    ) -> tuple[DLTypeAnnotation | None, ...]:
         """Create a new _DLTypeAnnotation from a type hint."""
         if hint is None:
-            return None
+            return (None,)
 
         _logger.debug("Creating DLType from hint %r", hint)
         n_expected_args = len(cls._fields)
@@ -78,9 +79,13 @@ class _DLTypeAnnotation(NamedTuple):
             # Recursively process the non-None type with optional=True
             return cls.from_hint(non_none_types[0], optional=True)
 
+        # tuple handling special case
+        if origin is tuple:
+            return tuple(itertools.chain(*[cls.from_hint(inner_hint) for inner_hint in args]))
+
         # Only process Annotated types
         if origin is not Annotated:
-            return None
+            return (None,)
 
         # Ensure the annotation is a TensorTypeBase
         if len(args) < n_expected_args or not isinstance(
@@ -91,7 +96,7 @@ class _DLTypeAnnotation(NamedTuple):
                 "Invalid annotated dltype hint: %r",
                 args[1:] if len(args) >= n_expected_args else None,
             )
-            return None
+            return (None,)
 
         # Ensure the base type is a supported tensor type
         tensor_type, dltype_hint = args[0], args[1]
@@ -100,7 +105,16 @@ class _DLTypeAnnotation(NamedTuple):
             raise TypeError(msg)
 
         dltype_hint.optional = optional
-        return cls(tensor_type_hint=tensor_type, dltype_annotation=dltype_hint)
+        return (cls(tensor_type_hint=tensor_type, dltype_annotation=dltype_hint),)
+
+
+@lru_cache()
+def _resolve_types(
+    annotations: tuple[DLTypeAnnotation | None, ...] | None,
+) -> tuple[_tensor_type_base.TensorTypeBase | None, ...] | None:
+    if annotations is None or all(ann is None for ann in annotations):
+        return None
+    return tuple((ann.dltype_annotation if ann is not None else None for ann in annotations))
 
 
 @runtime_checkable
@@ -113,21 +127,22 @@ class DLTypeScopeProvider(Protocol):
 
 
 def _maybe_get_type_hints(
-    existing_hints: dict[str, _DLTypeAnnotation | None] | None,
+    existing_hints: dict[str, tuple[DLTypeAnnotation | None, ...]] | None,
     func: Callable[P, R],
-) -> dict[str, _DLTypeAnnotation | None] | None:
+) -> dict[str, tuple[DLTypeAnnotation | None, ...]] | None:
     """Get the type hints for a function, or return an empty dict if not available."""
     if existing_hints is not None:
         return existing_hints
     try:
         return {
-            name: _DLTypeAnnotation.from_hint(hint)
+            name: DLTypeAnnotation.from_hint(hint)
             for name, hint in get_type_hints(func, include_extras=True).items()
         }
     except NameError:
         return None
 
 
+@lru_cache()
 def _maybe_get_signature(
     existing: inspect.Signature | None,
     func: Callable[P, R],
@@ -139,6 +154,13 @@ def _maybe_get_signature(
         return inspect.signature(func)
     except TypeError:
         return None
+
+
+def _resolve_value(
+    value: Any,  # noqa: ANN401
+    type_hint: tuple[_tensor_type_base.TensorTypeBase | DLTypeAnnotation | None, ...],
+) -> tuple[Any]:
+    return cast("tuple[Any]", value) if len(type_hint) > 1 else (value,)
 
 
 def dltyped(  # noqa: C901, PLR0915
@@ -176,7 +198,7 @@ def dltyped(  # noqa: C901, PLR0915
         dltype_hints = _maybe_get_type_hints(None, func)
 
         # if we added dltype to a method where it will have no effect, warn the user
-        if dltype_hints is not None and all(v is None for v in dltype_hints.values()):
+        if dltype_hints is not None and all(all(vv is None for vv in v) for v in dltype_hints.values()):
             _logger.warning("dltype_hints=%r", dltype_hints)
             warnings.warn(
                 "No DLType hints found, skipping type checking",
@@ -239,7 +261,11 @@ def dltyped(  # noqa: C901, PLR0915
 
                 if maybe_annotation := dltype_hints.get(name):
                     tensor = actual_args[name]
-                    ctx.add(name, tensor, maybe_annotation.dltype_annotation)
+                    ctx.add(
+                        name,
+                        _resolve_value(tensor, maybe_annotation),
+                        _resolve_types(maybe_annotation),
+                    )
                 elif any(isinstance(actual_args[name], T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
                     warnings.warn(
                         f"[argument={name}] is missing a DLType hint",
@@ -252,11 +278,11 @@ def dltyped(  # noqa: C901, PLR0915
             try:
                 ctx.assert_context()
                 retval = func(*args, **kwargs)
-                if maybe_return_annotation := dltype_hints.get(return_key):
+                if maybe_return_annotation := _resolve_types(dltype_hints.get(return_key)):
                     ctx.add(
                         return_key,
-                        retval,
-                        maybe_return_annotation.dltype_annotation,
+                        _resolve_value(retval, maybe_return_annotation),
+                        maybe_return_annotation,
                     )
                     ctx.assert_context()
                 elif any(isinstance(retval, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
@@ -280,7 +306,7 @@ def dltyped(  # noqa: C901, PLR0915
 NT = TypeVar("NT", bound=NamedTuple)
 
 
-def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
+def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:
     """
     Apply type checking to a NamedTuple class.
 
@@ -301,13 +327,11 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
         field_hints = get_type_hints(cls, include_extras=True)
 
         # Check for fields with DLType annotations
-        dltype_fields: dict[str, _DLTypeAnnotation] = {}
+        dltype_fields: dict[str, tuple[DLTypeAnnotation | None, ...]] = {}
         for field_name in cls._fields:
             if field_name in field_hints:
                 hint = field_hints[field_name]
-                dltype_annotation = _DLTypeAnnotation.from_hint(hint)
-                if dltype_annotation is not None:
-                    dltype_fields[field_name] = dltype_annotation
+                dltype_fields[field_name] = DLTypeAnnotation.from_hint(hint)
 
         # If no fields need validation, return the original class
         if not dltype_fields:
@@ -326,8 +350,7 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:  # noqa: C901
             for field_name, annotation in dltype_fields.items():
                 field_index = cls._fields.index(field_name)
                 value = instance[field_index]
-                if not (annotation.dltype_annotation.optional and value is None):
-                    ctx.add(field_name, value, annotation.dltype_annotation)
+                ctx.add(field_name, _resolve_value(value, annotation), _resolve_types(annotation))
 
             # Assert that all fields are valid
             try:
@@ -372,7 +395,7 @@ def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
         original_init = cls.__init__
         # Get field annotations
         field_hints = get_type_hints(cls, include_extras=True)
-        dltype_hints = {name: _DLTypeAnnotation.from_hint(hint) for name, hint in field_hints.items()}
+        dltype_hints = {name: DLTypeAnnotation.from_hint(hint) for name, hint in field_hints.items()}
 
         def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
             """A new __init__ method that validates the fields after initialization."""
@@ -388,12 +411,8 @@ def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
                     # Get the field value
                     value = getattr(self, field_name, None)
 
-                    # Skip None values for optional fields
-                    if annotation.dltype_annotation.optional and value is None:
-                        continue
-
                     # Add to validation context
-                    ctx.add(field_name, value, annotation.dltype_annotation)
+                    ctx.add(field_name, _resolve_value(value, annotation), _resolve_types(annotation))
 
             # Assert that all fields are valid
             try:

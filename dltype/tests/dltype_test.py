@@ -1507,3 +1507,26 @@ def test_shaped_tensor() -> None:
 
     with pytest.raises(dltype.DLTypeShapeError):
         PydanticObj(tensor_a=torch.ones((3, 3)))
+
+
+def test_return_tuple() -> None:
+    @dltype.dltyped()
+    def func(
+        arg: Annotated[torch.Tensor, dltype.FloatTensor["batch channels"]],
+        *,
+        fail: bool = False,
+    ) -> tuple[
+        Annotated[torch.Tensor, dltype.FloatTensor["channels batch"]],
+        Annotated[torch.Tensor, dltype.FloatTensor["1 channels batch"]],
+        int,
+    ]:
+        return (
+            (arg.permute(1, 0), arg.permute(1, 0).unsqueeze(0), 2)
+            if not fail
+            else (arg.permute(1, 0), arg.unsqueeze(0), 2)
+        )
+
+    func(torch.zeros(1, 3))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        func(torch.zeros(1, 3), fail=True)
