@@ -143,7 +143,7 @@ class TensorTypeBase:
                 "_dltype_context.DLTypeContext",
                 info.data[_constants.PYDANTIC_INFO_KEY],
             )
-            dl_context.add(info.field_name or "_unknown_", tensor, self)
+            dl_context.add(info.field_name or "_unknown_", (tensor,), (self,))
             dl_context.assert_context()
 
             return tensor

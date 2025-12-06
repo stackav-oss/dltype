@@ -22,9 +22,18 @@ def _maybe_warn_runtime(runtime_ns: int) -> bool:
 class _ConcreteType(NamedTuple):
     """A class containing a tensor name, a tensor value, and its type."""
 
-    tensor_arg_name: str
+    arg_index: int
+    tensor_arg_name_orig: str
     tensor: _dtypes.DLtypeTensorT
     dltype_annotation: _tensor_type_base.TensorTypeBase
+
+    @property
+    def tensor_arg_name(self) -> str:
+        return (
+            f"{self.tensor_arg_name_orig}[{self.arg_index}]"
+            if self.arg_index > 0
+            else self.tensor_arg_name_orig
+        )
 
     def get_expected_shape(
         self,
@@ -86,18 +95,30 @@ class DLTypeContext:
     def add(
         self,
         name: str,
-        tensor: Any,  # noqa: ANN401 (this truly can be anything in the case of a misused annotation)
-        dltype_annotation: _tensor_type_base.TensorTypeBase,
+        tensor_values: tuple[Any, ...],
+        dltype_annotation_tup: tuple[_tensor_type_base.TensorTypeBase | None, ...] | None,
     ) -> None:
         """Add a tensor to the context."""
-        if dltype_annotation.optional and tensor is None:
-            # skip optional tensors
+        if dltype_annotation_tup is None:
             return
-        if not any(isinstance(tensor, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
-            raise _errors.DLTypeUnsupportedTensorTypeError(
-                actual_type=cast("type[Any]", type(tensor)),
-            )
-        self._hinted_tensors.append(_ConcreteType(name, tensor, dltype_annotation))
+
+        for idx, (dltype_annotation, tensor) in enumerate(
+            zip(
+                dltype_annotation_tup,
+                tensor_values,
+                strict=True,
+            ),
+        ):
+            if dltype_annotation is None:
+                continue
+            if dltype_annotation.optional and tensor is None:
+                # skip optional tensors
+                return
+            if not any(isinstance(tensor, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
+                raise _errors.DLTypeUnsupportedTensorTypeError(
+                    actual_type=cast("type[Any]", type(tensor)),
+                )
+            self._hinted_tensors.append(_ConcreteType(idx, name, tensor, dltype_annotation))
 
     def assert_context(self) -> None:
         """Considering the current context, check if all tensors match their expected types."""
