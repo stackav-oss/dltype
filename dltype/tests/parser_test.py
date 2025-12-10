@@ -31,6 +31,11 @@ from dltype._lib import _parser
         ("max(3^x,min(3-y,99))", {"x": 2, "y": 4}, 9),
         ("min(3^x,3-y)", {"x": 2, "y": 4}, -1),
         ("variable_name_with_underscores", {"variable_name_with_underscores": 1}, 1),
+        ("isqrt(5)", {}, 2),
+        ("isqrt(16)", {}, 4),
+        ("isqrt(x-y)", {"x": 20, "y": 5}, 3),
+        ("min(isqrt(20),isqrt(16))", {}, 4),
+        ("max(isqrt(20),isqrt(16))", {}, 4),
     ],
 )
 def test_parse_expression(
@@ -52,6 +57,10 @@ def test_parse_expression(
         ("*batch", {}),
         ("3**2", {}),
         ("^", {}),
+        ("isqrt(4, 5)", {}),
+        ("isqrt()", {}),
+        ("max(1)", {}),
+        ("min()", {}),
     ],
 )
 def test_parse_invalid_expression(expression: str, scope: dict[str, int]) -> None:
