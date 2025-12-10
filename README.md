@@ -188,6 +188,17 @@ def optional_tensor_func(tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c
     return tensor
 ```
 
+## Tuple returns
+
+Tuples are a common way of passing multiple values and returns from functions.
+DLType supports annotating tuples passed to and returned from functions.
+Tuples can be mixes of annotated tensors as well as other types of objects.
+
+```python
+def returned_tuple_func() -> tuple[Annotated[torch.Tensor, dltype.UInt8Tensor["b rgb=3 h w"]], int]:
+    return torch.zeros(1, 3, 1080, 1920, dtype=torch.uint8), 8
+```
+
 ## Numpy and Tensor Mixing
 
 ```python
@@ -276,5 +287,5 @@ def free_function(tensor: FloatTensor["batch dim1"]) -> None:
 - Only symbolic, literal, and expressions are allowed for dimension specifiers, f-string syntax from `jaxtyping` is not supported.
 - Only torch tensors and numpy arrays are supported for now.
 - Static checking is not supported, only runtime checks, though some errors will be caught statically by construction.
-- We do not support container types (i.e. `list[TensorTypeBase]`) and we probably never will because parsing arbitrarily nested containers is very slow to do at runtime.
-- We do not support union types, but we do support optionals.
+- DLType does not support checkking inside unbounded container types (i.e. `list[TensorTypeBase]`) for performance reasons.
+- DLType does not support unions, but does support optionals.

@@ -1530,3 +1530,20 @@ def test_return_tuple() -> None:
 
     with pytest.raises(dltype.DLTypeShapeError):
         func(torch.zeros(1, 3), fail=True)
+
+
+def test_pass_tuple() -> None:
+    @dltype.dltyped()
+    def func(
+        arg: tuple[
+            Annotated[torch.Tensor, dltype.FloatTensor["x x y"]],
+            Annotated[torch.Tensor, dltype.FloatTensor["y y x"]],
+            int,
+        ],
+    ) -> None:
+        pass
+
+    func((torch.zeros(1, 1, 3), torch.zeros(3, 3, 1), 1))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        func((torch.zeros(1, 1, 3), torch.zeros(3, 2, 1), 1))
