@@ -30,35 +30,35 @@ class Add(AxisOperationBase):
     def __str__(self) -> str:
         if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
             return f"{self._lhs.value + self._rhs.value}"
-        return f"{self._lhs}+{self._rhs}"
+        return f"({self._lhs}+{self._rhs})"
 
 
 class Subtract(AxisOperationBase):
     def __str__(self) -> str:
         if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
             return f"{self._lhs.value - self._rhs.value}"
-        return f"{self._lhs}-{self._rhs}"
+        return f"({self._lhs}-{self._rhs})"
 
 
 class Divide(AxisOperationBase):
     def __str__(self) -> str:
         if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
             return f"{self._lhs.value // self._rhs.value}"
-        return f"{self._lhs}/{self._rhs}"
+        return f"({self._lhs}/{self._rhs})"
 
 
 class Multiply(AxisOperationBase):
     def __str__(self) -> str:
         if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
             return f"{self._lhs.value * self._rhs.value}"
-        return f"{self._lhs}*{self._rhs}"
+        return f"({self._lhs}*{self._rhs})"
 
 
 class Exp(AxisOperationBase):
     def __str__(self) -> str:
         if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
             return f"{self._lhs.value**self._rhs.value}"
-        return f"{self._lhs}^{self._rhs}"
+        return f"({self._lhs}^{self._rhs})"
 
 
 class Max(AxisOperationBase):
