@@ -6,7 +6,8 @@ dev = [
   "ruff>=0.12.0",
   "torch>=1.4.0",
   "setuptools>=60.0.0",
-  "pyright>=1.1.407"
+  "pyright>=1.1.407",
+  "pytest-cov>=7.0.0"
 ]
 
 [project]
@@ -18,7 +19,7 @@ license-files = ["LICENSE"]
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.7.0"
+version = "0.8.0"
 
 [project.optional-dependencies]
 numpy = ["numpy"]
@@ -34,6 +35,9 @@ ignore = []
 include = ["dltype"]
 reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+addopts = "--cov=dltype --cov-report lcov:lcov.info --cov-report html"
 
 [tool.ruff]
 indent-width = 4
@@ -88,7 +92,7 @@ extend-select = [
   "W"
 ]
 fixable = ["ALL"]
-ignore = ["D203", "D212", "D401", "E501", "PLR6301", "PLR0917"]
+ignore = ["COM812", "D203", "D212", "D401", "E501", "PLR6301", "PLR0917"]
 select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]

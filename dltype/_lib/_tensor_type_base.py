@@ -88,31 +88,21 @@ class TensorTypeBase:
 
         # Process shape specification, looking for multiaxis modifiers
         processed_shapes: list[_parser.DLTypeDimensionExpression] = []
-        modifiers: dict[int, _parser.DLTypeModifier | None] = {}
+        _multiaxis_parsed: set[int] = set()
 
         for i, dim_str in enumerate(split_shape):
-            modifiers[i] = None
-            for modifier in _parser.DLTypeModifier:
-                if dim_str.startswith(modifier.value):
-                    modifiers[i] = modifier
-                    break
-
-            this_dimension_modifier = modifiers[i]
-            if this_dimension_modifier in {
-                _parser.DLTypeModifier.NAMED_MULTIAXIS,
-                _parser.DLTypeModifier.ANONYMOUS_MULTIAXIS,
-            }:
-                if self.multiaxis_index is not None:
-                    msg = f"Multiple multiaxis modifiers not allowed in {shape_string=}"
-                    raise SyntaxError(msg)
-
+            expression = _parser.expression_from_string(dim_str)
+            if expression.is_named_multiaxis or expression.is_anonymous:
+                _multiaxis_parsed.add(i)
+                self.multiaxis_name = expression.identifier if expression.is_named_multiaxis else None
                 self.multiaxis_index = i
-                self.multiaxis_name = dim_str[len(this_dimension_modifier.value) :]
-                self.anonymous_multiaxis = (
-                    this_dimension_modifier == _parser.DLTypeModifier.ANONYMOUS_MULTIAXIS
-                )
+            self.anonymous_multiaxis |= expression.is_anonymous
 
-            processed_shapes.append(_parser.expression_from_string(dim_str))
+            processed_shapes.append(expression)
+
+        if len(_multiaxis_parsed) > 1:
+            msg = f"Multiple multiaxis modifiers not allowed in {shape_string=}"
+            raise SyntaxError(msg)
 
         return tuple(processed_shapes)
 

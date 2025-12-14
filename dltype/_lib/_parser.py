@@ -3,28 +3,44 @@
 from __future__ import annotations
 
 import enum
-import itertools
 import logging
 import math
 import re
-from typing import Final
+import typing
 
 from typing_extensions import override
 
-_logger: Final = logging.getLogger(__name__)
+_logger: typing.Final = logging.getLogger(__name__)
 
 
-class DLTypeSpecifier(enum.Enum):
+class _DLTypeSpecifier(enum.Enum):
     """An enum representing a way to specify a name for a dimension expression or literal."""
 
     EQUALS = "="
 
+    def __repr__(self) -> str:
+        return self.value
 
-class DLTypeModifier(enum.Enum):
+
+class _DLTypeGroupToken(enum.Enum):
+    """An enum for grouping tokens."""
+
+    LPAREN = "("
+    RPAREN = ")"
+    COMMA = ","
+
+    def __repr__(self) -> str:
+        return self.value
+
+
+class _DLTypeModifier(enum.Enum):
     """An enum representing a modifier that can be applied to a dimension expression."""
 
     ANONYMOUS_MULTIAXIS = "..."
     NAMED_MULTIAXIS = "*"
+
+    def __repr__(self) -> str:
+        return self.value
 
 
 class _DLTypeOperator(enum.Enum):
@@ -38,6 +54,9 @@ class _DLTypeOperator(enum.Enum):
     MIN = "min"
     MAX = "max"
     ISQRT = "isqrt"
+
+    def __repr__(self) -> str:
+        return self.value
 
     def evaluate_unary(self, a: int) -> int:
         """Evaluate the unary operator."""
@@ -64,32 +83,29 @@ class _DLTypeOperator(enum.Enum):
         raise NotImplementedError(self)
 
 
-_op_precedence: Final = {
+_op_precedence: typing.Final = {
     _DLTypeOperator.ADD: 1,
     _DLTypeOperator.SUB: 1,
     _DLTypeOperator.MUL: 2,
     _DLTypeOperator.DIV: 2,
     _DLTypeOperator.EXP: 3,
-    _DLTypeOperator.MIN: 0,
-    _DLTypeOperator.MAX: 0,
-    _DLTypeOperator.ISQRT: 0,
+    _DLTypeOperator.MIN: 4,
+    _DLTypeOperator.MAX: 4,
+    _DLTypeOperator.ISQRT: 5,
+    _DLTypeGroupToken.LPAREN: 6,
 }
 
-_unary_operators: Final = frozenset({_DLTypeOperator.ISQRT})
-_binary_operators: Final = frozenset({_DLTypeOperator.MIN, _DLTypeOperator.MAX})
-_functional_operators: Final = frozenset(_unary_operators.union(_binary_operators))
+_unary_functions: typing.Final = frozenset({_DLTypeOperator.ISQRT})
+_binary_functions: typing.Final = frozenset({_DLTypeOperator.MIN, _DLTypeOperator.MAX})
+_functional_operators: typing.Final = frozenset(_unary_functions.union(_binary_functions))
+_infix_operators: typing.Final = frozenset(
+    {_DLTypeOperator.ADD, _DLTypeOperator.SUB, _DLTypeOperator.MUL, _DLTypeOperator.DIV, _DLTypeOperator.EXP}
+)
 _valid_operators: frozenset[str] = frozenset(
     {op.value for op in _DLTypeOperator if op not in _functional_operators},
 )
-_valid_modifiers: frozenset[str] = frozenset({mod.value for mod in DLTypeModifier})
 
-INFIX_EXPRESSION_SPLIT_RX: Final = re.compile(
-    f"({'|'.join(map(re.escape, _valid_operators))})",
-)
-VALID_EXPRESSION_RX: Final = re.compile(
-    f"^[a-zA-Z0-9_{''.join(map(re.escape, _valid_operators.union(_valid_modifiers)))}]+$",
-)
-VALID_IDENTIFIER_RX: Final = re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*$")
+_VALID_IDENTIFIER_RX: typing.Final = re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*$")
 
 
 class DLTypeDimensionExpression:
@@ -102,6 +118,7 @@ class DLTypeDimensionExpression:
         *,
         is_multiaxis_literal: bool = False,
         is_anonymous: bool = False,
+        is_named_multiaxis: bool = False,
     ) -> None:
         """Create a new dimension expression."""
         self.identifier = identifier
@@ -112,19 +129,20 @@ class DLTypeDimensionExpression:
         self.is_literal = not is_multiaxis_literal and all(
             isinstance(token, int) for token in postfix_expression
         )
-        self.is_identifier = is_multiaxis_literal or (postfix_expression == [identifier])
+        self.is_identifier = (
+            is_multiaxis_literal or is_named_multiaxis or (postfix_expression == [identifier])
+        )
         # this is an expression if it's not a literal value, if it's
         # an identifier that points to another dimension, or if it's an
         # identifier that doesn't just point to itself
-        self.is_expression = not self.is_literal and (
+        self.is_expression = not (self.is_identifier and self.is_literal) and (
             len(postfix_expression) > 1 or self.identifier not in postfix_expression
         )
         self.is_multiaxis_literal = is_multiaxis_literal
         self.is_anonymous = is_anonymous
+        self.is_named_multiaxis = is_named_multiaxis
         _logger.debug(
-            "Created new %s dimension expression %r",
-            "multiaxis" if self.is_multiaxis_literal else "",
-            self,
+            "Created new %s dimension expression %r", "multiaxis" if self.is_multiaxis_literal else "", self
         )
 
         # ensure we don't have any self-referential expressions
@@ -186,7 +204,7 @@ class DLTypeDimensionExpression:
                 stack.append(scope[token])
             elif isinstance(token, _DLTypeOperator):  # pyright: ignore[reportUnnecessaryIsInstance]
                 b = stack.pop()
-                if token in _unary_operators:
+                if token in _unary_functions:
                     stack.append(token.evaluate_unary(b))
                     continue
                 a = stack.pop()
@@ -203,7 +221,38 @@ class DLTypeDimensionExpression:
         return stack[0]
 
 
-def _postfix_from_infix(identifier: str, expression: str) -> DLTypeDimensionExpression:
+def _maybe_multiaxis(
+    identifier: str,
+    expression: list[TokenT | str | int],
+) -> DLTypeDimensionExpression | None:
+    # this is a modified expression, so we need to handle it differently
+    if len(expression) == 1 and expression[0] == _DLTypeModifier.ANONYMOUS_MULTIAXIS.value:
+        return DLTypeDimensionExpression(identifier, [], is_anonymous=True)
+
+    if len(expression) == 2 and expression[0] == _DLTypeOperator.MUL and isinstance(expression[1], str):  # noqa: PLR2004
+        if not _VALID_IDENTIFIER_RX.match(expression[1]):
+            msg = f"{expression[1]} is not a valid multiaxis identifier"
+            raise SyntaxError(msg)
+        return DLTypeDimensionExpression(expression[1], [expression[1]], is_named_multiaxis=True)
+
+    return None
+
+
+def _flush_op_by_precedence(
+    stack: list[str | _DLTypeOperator],
+    postfix: list[str | int | _DLTypeOperator],
+    current_op: _DLTypeOperator | _DLTypeGroupToken,
+) -> None:
+    # Pop operators with higher or equal precedence
+    while (
+        stack
+        and (isinstance(stack[-1], _DLTypeOperator | _DLTypeGroupToken))
+        and _op_precedence.get(stack[-1], 0) >= _op_precedence.get(current_op, 0)
+    ):
+        postfix.append(stack.pop())
+
+
+def _postfix_from_infix(identifier: str, expression: list[TokenT | str | int]) -> DLTypeDimensionExpression:  # noqa: C901, PLR0912, PLR0915
     """
     Extract a postfix expression from an infix expression.
 
@@ -211,166 +260,192 @@ def _postfix_from_infix(identifier: str, expression: str) -> DLTypeDimensionExpr
     """
     _logger.debug("Parsing infix expression %r", expression)
 
-    # this is a modified expression, so we need to handle it differently
-    if expression == DLTypeModifier.ANONYMOUS_MULTIAXIS.value:
-        return DLTypeDimensionExpression(expression, [], is_anonymous=True)
-    if expression.startswith(DLTypeModifier.NAMED_MULTIAXIS.value):
-        stripped_expression = expression[len(DLTypeModifier.NAMED_MULTIAXIS.value) :]
-        if not VALID_IDENTIFIER_RX.match(stripped_expression):
-            msg = f"Invalid identifier {stripped_expression=}"
-            raise SyntaxError(msg)
-        return DLTypeDimensionExpression(stripped_expression, [stripped_expression])
+    if not expression:
+        msg = f"Argument list empty ({identifier})"
+        raise SyntaxError(msg)
 
-    split_expression = INFIX_EXPRESSION_SPLIT_RX.split(expression)
+    if maybe_multiaxis := _maybe_multiaxis(identifier, expression):
+        return maybe_multiaxis
 
     # Convert infix to postfix using shunting yard algorithm
+    scope_vars: set[str] = set()
     stack: list[str | _DLTypeOperator] = []
     postfix: list[str | int | _DLTypeOperator] = []
-    for token in split_expression:
-        if token.isdigit():
-            postfix.append(int(token))
-        elif token in _valid_operators:
-            current_op = _DLTypeOperator(token)
+    current_index = 0
 
-            # Pop operators with higher or equal precedence
-            while (
-                stack
-                and isinstance(stack[-1], _DLTypeOperator)
-                and _op_precedence.get(stack[-1], 0) >= _op_precedence.get(current_op, 0)
-            ):
-                postfix.append(stack.pop())
+    while current_index < len(expression):
+        token = expression[current_index]
+
+        if isinstance(token, int):
+            postfix.append(token)
+            current_index += 1
+        elif token in _infix_operators:
+            current_op = token
+            _flush_op_by_precedence(stack, postfix, current_op)
 
             stack.append(current_op)
-        elif VALID_IDENTIFIER_RX.match(token):
-            # It's a variable name
+            current_index += 1
+        elif token in _functional_operators or token == _DLTypeGroupToken.LPAREN:
+            current_op = token
+            assert isinstance(current_op, _DLTypeGroupToken | _DLTypeOperator)
+            _flush_op_by_precedence(stack, postfix, current_op)
+
+            lparen, comma_indices, rparen = _get_group_indices(expression[current_index:], current_index)
+            if token in _binary_functions and len(comma_indices) != 1:
+                msg = f"{token.value} requires two arguments, received {len(comma_indices) + 1}"
+                raise SyntaxError(msg)
+            if token in _unary_functions and len(comma_indices) != 0:
+                msg = f"{token.value} requires one argument, received {len(comma_indices) + 1}"
+                raise SyntaxError(msg)
+            if token == _DLTypeGroupToken.LPAREN and len(comma_indices) != 0:
+                msg = "Group received invalid comma separator"
+                raise SyntaxError(msg)
+
+            lhs = lparen
+            for arg_idx in [*comma_indices, rparen]:
+                inner_expr = _postfix_from_infix(f"{identifier}[{arg_idx}]", expression[lhs + 1 : arg_idx])
+                postfix.extend(inner_expr.parsed_expression)
+                scope_vars.update(exp for exp in inner_expr.parsed_expression if isinstance(exp, str))
+                lhs = arg_idx
+
+            if current_op in _functional_operators:
+                stack.append(current_op)
+            current_index = rparen + 1
+        elif isinstance(token, str) and _VALID_IDENTIFIER_RX.match(token):
             postfix.append(token)
+            scope_vars.add(token)
+            current_index += 1
         else:
-            msg = f"Invalid expression {expression=}"
+            msg = f"Invalid expression={identifier} [{token=}] pos={current_index}/{len(expression)}"
             raise SyntaxError(msg)
 
     # Pop any remaining operators
     while stack:
         postfix.append(stack.pop())
 
-    _logger.debug("Parsed infix expression %r to postfix %r", expression, postfix)
+    _logger.debug("Parsed infix expression %r to postfix %r", identifier, postfix)
     return DLTypeDimensionExpression(identifier, postfix)
 
 
-def _maybe_parse_functional_expression(
-    identifier: str,
-    expression: str,
-    function: _DLTypeOperator,
-) -> DLTypeDimensionExpression | None:
-    """
-    Parse a function-like expression such as min(a,b) or max(x,y).
+TokenT: typing.TypeAlias = _DLTypeSpecifier | _DLTypeGroupToken | _DLTypeOperator
 
-    Args:
-        identifier: The identifier for the expression (e.g. the name of the dimension)
-        expression: The expression to parse
-        function: The function operator (_DLTypeOperator.MIN or _DLTypeOperator.MAX)
 
-    Returns:
-        A parsed dimension expression if the expression is a valid function call, None otherwise
-
-    """
-    if not expression.startswith(f"{function.value}("):
-        return None
-
-    # Find balanced closing parenthesis
-    # Strip function name and opening parenthesis
-    content = expression[len(function.value) + 1 :]
-
-    # Remove closing parenthesis
-    content = content[:-1]
-
-    # Find the comma that separates arguments (accounting for nesting)
-    depth = 0
-    balanced_content: list[str] = []
-    current_span = ""
-
-    for char in content:
-        current_span += char
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth < 0:
-                msg = f"Unbalanced parentheses in function expression: {expression}"
-                raise SyntaxError(msg)
-        elif char == "," and depth == 0:
-            balanced_content.append(current_span[:-1])
-            current_span = ""
-    balanced_content.append(current_span)
-
-    if function in _binary_operators and len(balanced_content) != 2:  # noqa: PLR2004
-        msg = f"Function {function.value} requires 2 arguments, got {len(balanced_content)} in {expression=}"
-        raise SyntaxError(msg)
-    if function in _unary_operators and len(balanced_content) != 1:
-        msg = f"Function {function.value} requires 1 argument, got {len(balanced_content)} in {expression=}"
-        raise SyntaxError(msg)
-
-    expressions = [expression_from_string(exp) for exp in balanced_content]
-
-    # Build postfix expression: [arg1 tokens, arg2 tokens, function]
-    return DLTypeDimensionExpression(
-        identifier,
-        [*list(itertools.chain(*[exp.parsed_expression for exp in expressions])), function],
+def _span_to_tok(character: str) -> TokenT | None:
+    maybe_operator = typing.cast("_DLTypeOperator | None", _DLTypeOperator._value2member_map_.get(character))
+    maybe_specifier = typing.cast(
+        "_DLTypeSpecifier | None", _DLTypeSpecifier._value2member_map_.get(character)
     )
+    maybe_group = typing.cast("_DLTypeGroupToken | None", _DLTypeGroupToken._value2member_map_.get(character))
+    return maybe_operator or maybe_specifier or maybe_group
+
+
+def _span_to_str_or_int(span: str) -> str | int:
+    if span.isnumeric():
+        return int(span)
+    return span
+
+
+def _assert_token_list_valid(tokenized: list[str | int | TokenT]) -> None:
+    if len(tokenized) == 0:
+        msg = "Empty expression"
+        raise SyntaxError(msg)
+
+    if len(tokenized) == 1 and isinstance(tokenized[0], str | int):
+        # special case where the only token is an identifier
+        return
+
+    if len(tokenized) == 2 and tokenized[0] == _DLTypeOperator.MUL and isinstance(tokenized[1], str):  # noqa: PLR2004
+        # is an anonymous named axis
+        return
+
+    # other than the special case above, fold the iterated list in to make sure the operators are balanced
+    n_expected_args = 1  # expected at least one expression
+    n_actual_args = 0
+
+    for tok in reversed(tokenized):
+        if tok in _unary_functions:
+            n_expected_args += 1
+            n_actual_args += 1
+        elif tok in _binary_functions | _infix_operators:
+            # all operators are binary
+            n_expected_args += 2
+            n_actual_args += 1
+        elif isinstance(tok, str | int):
+            n_actual_args += 1
+        elif isinstance(tok, _DLTypeGroupToken):
+            continue
+        else:
+            raise SyntaxError(tok)
+
+    if n_expected_args != n_actual_args:
+        raise SyntaxError("Invalid expression syntax: " + "".join(map(repr, tokenized)))
+
+
+def _tokenize_string_expr(
+    expression: str,
+) -> list[str | int | TokenT]:
+    return_list: list[str | int | TokenT] = []
+    current_span = ""
+    for character in expression:
+        if character == " ":
+            msg = "Spaces not permitted in dimension expressions"
+            raise SyntaxError(msg)
+
+        if token := _span_to_tok(character):
+            if current_span:
+                return_list.append(_span_to_tok(current_span) or _span_to_str_or_int(current_span))
+            current_span = ""
+            return_list.append(token)
+        else:
+            current_span += character
+    if current_span:
+        return_list.append(_span_to_tok(current_span) or _span_to_str_or_int(current_span))
+    _assert_token_list_valid(return_list)
+    return return_list
+
+
+def _get_group_indices(expr: list[TokenT | int | str], offset: int) -> tuple[int, list[int], int]:
+    lparen_idx: int | None = None
+    comma_idx: list[int] = []
+    rparen_idx: int | None = None
+    nesting_depth = 0
+
+    for idx, tok in enumerate(expr):
+        if tok == _DLTypeGroupToken.LPAREN:
+            nesting_depth += 1
+            lparen_idx = idx + offset if nesting_depth == 1 else lparen_idx
+        elif tok == _DLTypeGroupToken.COMMA and nesting_depth == 1:
+            comma_idx.append(idx + offset)
+        elif tok == _DLTypeGroupToken.RPAREN:
+            rparen_idx = idx + offset if nesting_depth == 1 else rparen_idx
+            nesting_depth -= 1
+
+        if rparen_idx:
+            break
+
+    if lparen_idx is None:
+        msg = f"Invalid function syntax {expr=}, missing ("
+        raise SyntaxError(msg)
+    if rparen_idx is None:
+        msg = f"Invalid function syntax {expr=}, missing )"
+        raise SyntaxError(msg)
+
+    if lparen_idx > rparen_idx or any(c_idx < lparen_idx or c_idx > rparen_idx for c_idx in comma_idx):
+        msg = f"Unbalanced parenthesis in expression {''.join(map(repr, expr))}"
+        raise SyntaxError(msg)
+
+    return lparen_idx, comma_idx, rparen_idx
 
 
 def expression_from_string(expression: str) -> DLTypeDimensionExpression:
-    """
-    Parse a dimension expression from a string and return a parsed expression.
-
-    Examples:
-        >>> expression_from_string("a+b")
-        Identifier<a + b=[a, b, +]>
-
-        >>> expression_from_string("min(a,b)")
-        Identifier<min(a, b)=[a, b, min]>
-
-        # literals
-        >>> expression_from_string("10")
-        Literal<10=[10]>
-
-        >>> expression_from_string("...")
-        Anonymous<...>
-
-        >>> expression_from_string("a*10")
-        Identifier<a * 10=[a, 10, *]>
-
-        >>> expression_from_string("a*10+b")
-        Identifier<a * 10 + b=[a, 10, *, b, +]>
-
-    Args:
-        identifier: The identifier for the expression (e.g. the name of the dimension)
-        expression: The expression to parse
-
-    Returns:
-        A parsed dimension expression.
-
-    """
+    """Parse a dimension expression from a string and return a parsed expression."""
     if not expression:
         msg = f"Empty expression {expression=}"
         raise SyntaxError(msg)
 
     # split the expression into the identifier and the expression if it has a specifier
     identifier = expression
-    if DLTypeSpecifier.EQUALS.value in expression:
-        identifier, expression = expression.split(DLTypeSpecifier.EQUALS.value)
-
-    for function in _functional_operators:
-        if result := _maybe_parse_functional_expression(
-            identifier,
-            expression,
-            function,
-        ):
-            _logger.debug("Parsed function expression %r", result)
-            return result
-
-    if not VALID_EXPRESSION_RX.match(expression):
-        msg = f"Invalid {expression=} {VALID_EXPRESSION_RX=}"
-        raise SyntaxError(msg)
-
-    # split the expression into tokens using the operators from the enum as delimiters
-    return _postfix_from_infix(identifier, expression)
+    if _DLTypeSpecifier.EQUALS.value in expression:
+        identifier, expression = expression.split(_DLTypeSpecifier.EQUALS.value, maxsplit=1)
+    tokenized = _tokenize_string_expr(expression)
+    return _postfix_from_infix(identifier, tokenized)

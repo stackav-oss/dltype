@@ -77,11 +77,7 @@ FloatTensor["features/2"]  # Half the features dimension
 
 - `min(a,b)` Minimum of two expressions
 - `max(a,b)` Maximum of two expressions
-
-> [!WARNING]
-> While nested function calls like `min(max(a,b),c)` are supported,
-> combining function calls with other operators in the same expression
-> (e.g., `min(1,batch)+max(2,channels)`) is not supported to simplify parsing.
+- `isqrt(a)` Integer (floor) square root of a symbol or expression
 
 ### Symbolic Dimensions
 
@@ -282,10 +278,10 @@ def free_function(tensor: FloatTensor["batch dim1"]) -> None:
 
 ## Limitations
 
-- In the current implementation, _every_ call will be checked, which may or may not be slow depending on how big the context is (it shouldn't be that slow).
+- In the current implementation, _every_ call will be checked, the performance overhead on most systems should be negligible (OTOO microseconds).
 - Pydantic default values are not checked.
 - Only symbolic, literal, and expressions are allowed for dimension specifiers, f-string syntax from `jaxtyping` is not supported.
 - Only torch tensors and numpy arrays are supported for now.
-- Static checking is not supported, only runtime checks, though some errors will be caught statically by construction.
+- Static shape checking is not supported, DLType only performs runtime checks, though some expression errors will be caught statically by construction if symbolic (i.e. non-string) shapes are used.
 - DLType does not support checkking inside unbounded container types (i.e. `list[TensorTypeBase]`) for performance reasons.
 - DLType does not support unions, but does support optionals.

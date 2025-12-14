@@ -2,6 +2,7 @@
 """Tests for common types used in deep learning."""
 
 import re
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,7 @@ import numpy.typing as npt
 import pytest
 import torch
 from pydantic import BaseModel
+from torch.jit import TracerWarning  # pyright: ignore[reportPrivateImportUsage]
 
 import dltype
 
@@ -26,6 +28,11 @@ class _RaisesInfo(NamedTuple):
     exception_type: type[Exception] | None = None
     regex: str | None = None
     value: torch.Tensor | None = None
+
+
+class _WarnsInfo(NamedTuple):
+    match_text: str
+    warning_type: type[Warning] = UserWarning
 
 
 @dltype.dltyped()
@@ -92,12 +99,13 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
 
 
 @pytest.mark.parametrize(
-    ("input_tensor", "func", "expected"),
+    ("input_tensor", "func", "expected", "maybe_warn"),
     [
         pytest.param(
             torch.ones(1, 1, 1, 1),
             bad_function,
             _RaisesInfo(value=torch.ones(1, 1, 1, 1)),
+            None,
             id="bad_func trivial",
         ),
         pytest.param(
@@ -107,6 +115,7 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
                 exception_type=dltype.DLTypeShapeError,
                 regex=bad_dimension_error("return", expected=3, idx=0, actual=1),
             ),
+            None,
             id="bad_func_4D",
         ),
         pytest.param(
@@ -116,6 +125,7 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
                 exception_type=dltype.DLTypeNDimsError,
                 regex=bad_ndim_error("tensor", expected=4, actual=3),
             ),
+            None,
             id="bad_func_3D",
         ),
         pytest.param(
@@ -125,12 +135,14 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
                 exception_type=dltype.DLTypeNDimsError,
                 regex=bad_ndim_error("tensor", expected=4, actual=5),
             ),
+            None,
             id="bad_func_5D",
         ),
         pytest.param(
             torch.ones(1, 2, 3, 4),
             good_function,
             _RaisesInfo(value=torch.ones(3, 4, 1, 2)),
+            None,
             id="good_func_4D",
         ),
         pytest.param(
@@ -140,18 +152,21 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
                 exception_type=dltype.DLTypeNDimsError,
                 regex=bad_ndim_error("tensor", expected=4, actual=3),
             ),
+            None,
             id="good_func_3D",
         ),
         pytest.param(
             torch.ones(1, 2, 3, 4),
             incomplete_annotated_function,
             _RaisesInfo(value=torch.ones(1, 2, 3, 4)),
+            _WarnsInfo(match_text=re.escape("[return] is missing a DLType hint")),
             id="incomplete_annotated_4D",
         ),
         pytest.param(
             torch.ones(1, 2, 3, 4),
             incomplete_return_function,
             _RaisesInfo(value=torch.ones(3, 4, 1, 2)),
+            None,
             id="incomplete_return_4D",
         ),
         pytest.param(
@@ -161,6 +176,7 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
                 exception_type=RuntimeError,
                 regex=r"number of dimensions in the tensor input does not match*",
             ),
+            None,
             id="invalid arg no type hint",
         ),
     ],
@@ -169,6 +185,7 @@ def test_single_in_single_out(
     input_tensor: torch.Tensor,
     func: Callable[[torch.Tensor], torch.Tensor],
     expected: _RaisesInfo,
+    maybe_warn: _WarnsInfo | None,
 ) -> None:
     # test both positional and keyword arguments
     if expected.exception_type is not None:
@@ -176,6 +193,11 @@ def test_single_in_single_out(
             func(input_tensor)
         with pytest.raises(expected.exception_type, match=expected.regex):
             func(tensor=input_tensor)  # pyright: ignore[reportCallIssue]
+    elif maybe_warn is not None:
+        with pytest.warns(maybe_warn.warning_type, match=maybe_warn.match_text):
+            torch.testing.assert_close(func(input_tensor), expected.value)
+        with pytest.warns(maybe_warn.warning_type, match=maybe_warn.match_text):
+            torch.testing.assert_close(func(tensor=input_tensor), expected.value)  # pyright: ignore[reportCallIssue]
     else:
         torch.testing.assert_close(func(input_tensor), expected.value)
         torch.testing.assert_close(func(tensor=input_tensor), expected.value)  # pyright: ignore[reportCallIssue]
@@ -506,7 +528,9 @@ def test_onnx_export() -> None:
         ) -> Annotated[torch.Tensor, dltype.FloatTensor("b c h w")]:
             return torch.multiply(x, 2)
 
-    with NamedTemporaryFile() as f:
+    with NamedTemporaryFile() as f, warnings.catch_warnings():
+        warnings.simplefilter(category=DeprecationWarning, action="ignore")
+        warnings.simplefilter(category=TracerWarning, action="ignore")
         torch.onnx.export(
             _DummyModule(),
             (torch.rand(1, 2, 3, 4),),
@@ -518,7 +542,7 @@ def test_onnx_export() -> None:
         assert Path(f.name).exists()
         assert Path(f.name).stat().st_size > 0
 
-        with pytest.raises(TypeError):
+        with pytest.raises(dltype.DLTypeNDimsError):
             torch.onnx.export(
                 _DummyModule(),
                 (torch.rand(1, 2, 3),),
@@ -539,23 +563,25 @@ def test_torch_compile() -> None:
 
     _DummyModule().forward(torch.rand(1, 2, 3, 4))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         _DummyModule().forward(torch.rand(1, 2, 3))
 
     module = torch.compile(_DummyModule())
 
     module(torch.rand(1, 2, 3, 4))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         module(torch.rand(1, 2, 3))
 
-    torch.jit.trace(_DummyModule(), torch.rand(1, 2, 3, 4))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", TracerWarning)
+        torch.jit.trace(_DummyModule(), torch.rand(1, 2, 3, 4))
 
     scripted_module = torch.jit.script(_DummyModule())
 
     scripted_module(torch.rand(1, 2, 3, 4))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeNDimsError):
         scripted_module(torch.rand(1, 2, 3))
 
 
@@ -583,7 +609,7 @@ def test_mixed_typing() -> None:
         torch.rand(2, 2, 2),
     )
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeShapeError):
         mixed_func(
             torch.rand(1, 2, 3, 4),
             np_rand(1, 2, 3, 4),
@@ -622,7 +648,7 @@ def test_bad_dimension_name() -> None:
         def bad_function(  # pyright: ignore[reportUnusedFunction]
             tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b?"]],
         ) -> None:
-            print(tensor)
+            pass
 
 
 @dltype.dltyped()
@@ -716,17 +742,6 @@ def test_expression_syntax_errors() -> None:
         @dltype.dltyped()
         def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
             _: Annotated[torch.Tensor, dltype.FloatTensor["+ - * dim"]],
-        ) -> None:
-            return None
-
-    with pytest.raises(SyntaxError):
-        # don't allow multiple min/max calls
-        @dltype.dltyped()
-        def func_with_bad_expression(  # pyright: ignore[reportUnusedFunction]
-            _: Annotated[
-                torch.Tensor,
-                dltype.FloatTensor["batch channels min(1,channels-1)+max(channels,dim)"],
-            ],
         ) -> None:
             return None
 
@@ -924,20 +939,20 @@ def test_anonymous_wildcard_arg_and_return() -> None:
     # test that anonymous dimensions aren't matched
     assert result.shape[0] != input_shape[0]
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeShapeError):
         bad_func_with_two_named_wildcards(torch.rand(1, 2, 3))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeShapeError):
         bad_func_with_two_named_wildcards(torch.rand(1, 2, 3, 4, 5, 6))
 
     func_with_named_wildcard_followed_by_literal(torch.rand(1, 1, 1, 3, 4))
     func_with_named_wildcard_followed_by_literal(torch.rand(4, 3, 2, 1, 4, 5))
     func_with_named_wildcard_followed_by_literal(torch.rand(1, 2, 3))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeShapeError):
         func_with_named_wildcard_followed_by_literal(torch.rand(4, 3, 2, 2, 4, 5))
 
-    with pytest.raises(TypeError):
+    with pytest.raises(dltype.DLTypeShapeError):
         func_with_named_wildcard_followed_by_literal(torch.rand(3, 2, 1))
 
 
@@ -1057,8 +1072,10 @@ def test_dimension_with_external_scope() -> None:
     ) -> torch.Tensor:
         return tensor
 
-    good_function(torch.ones(1, 3, 4).int())
-    good_function(torch.ones(4, 3, 4).int())
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        good_function(torch.ones(1, 3, 4).int())
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        good_function(torch.ones(4, 3, 4).int())
 
     with pytest.raises(dltype.DLTypeShapeError):
         good_function(torch.ones(1, 3, 5).int())
@@ -1067,8 +1084,10 @@ def test_dimension_with_external_scope() -> None:
 
     provider = Provider()
 
-    provider.forward(torch.ones(1, 3, 4))
-    provider.forward(torch.ones(4, 3, 4))
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        provider.forward(torch.ones(1, 3, 4))
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        provider.forward(torch.ones(4, 3, 4))
 
     with pytest.raises(dltype.DLTypeShapeError):
         provider.forward(torch.ones(1, 3, 5))
@@ -1089,12 +1108,14 @@ def test_optional_type_handling() -> None:
         return tensor
 
     # Should work with None
-    result = optional_tensor_func(None)
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        result = optional_tensor_func(None)
     assert result.shape == (1, 3, 5, 5)
 
     # Should work with correct tensor
     input_tensor = torch.rand(2, 3, 4, 4)
-    torch.testing.assert_close(optional_tensor_func(input_tensor), input_tensor)
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+        torch.testing.assert_close(optional_tensor_func(input_tensor), input_tensor)
 
     # Should fail with incorrect shape
     with pytest.raises(dltype.DLTypeNDimsError):
@@ -1442,7 +1463,7 @@ ShapedTensorT: TypeAlias = Annotated[torch.Tensor, dltype.Float16Tensor["1 2 3"]
 def test_type_alias() -> None:
     @dltype.dltyped()
     def function(tensor: ShapedTensorT) -> None:
-        print(tensor)
+        assert tensor is not None
 
     function(torch.empty((1, 2, 3), dtype=torch.float16))
 
