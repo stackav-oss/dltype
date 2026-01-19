@@ -1,6 +1,6 @@
 # DL Type (Deep Learning Type Library)
 
-This typing library is intended to replace jaxtyping for runtime type checking of torch tensors and numpy arrays.
+This typing library is intended to replace jaxtyping for runtime type checking of torch tensors, Jax arrays, and numpy arrays.
 
 In particular, we support two functions that beartype/jaxtype do not:
 
@@ -23,7 +23,7 @@ pip3 install dltype
 ```
 
 > [!NOTE]
-> dltype does not depend explicitly on torch or numpy, but you must have at least one of them installed at import time otherwise the import will fail.
+> dltype does not depend explicitly on torch, jax, or numpy, but you must have at least one of them installed at import time otherwise the import will fail.
 
 ## Usage
 
@@ -195,18 +195,21 @@ def returned_tuple_func() -> tuple[Annotated[torch.Tensor, dltype.UInt8Tensor["b
     return torch.zeros(1, 3, 1080, 1920, dtype=torch.uint8), 8
 ```
 
-## Numpy and Tensor Mixing
+## Numpy, jax, and Tensor Mixing
 
 ```python
 from typing import Annotated
+
+import jax
 import torch
 import numpy as np
 from dltype import FloatTensor, dltyped
 
 @dltyped()
 def transform_tensors(
-    points: Annotated[np.ndarray, FloatTensor["N 3"]]
-    transform: Annotated[torch.Tensor, FloatTensor["3 3"]]
+    points: Annotated[np.ndarray, FloatTensor["N 3"]],
+    transform: Annotated[torch.Tensor, FloatTensor["3 3"]],
+    aux: Annotated[jax.Array, FloatTensor["N"]],
 ) -> Annotated[torch.Tensor, FloatTensor["N 3"]]:
     return torch.from_numpy(points) @ transform
 ```

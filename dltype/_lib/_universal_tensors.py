@@ -3,12 +3,13 @@
 
 from dltype._lib import _tensor_type_base
 from dltype._lib._dependency_utilities import (
+    is_jax_available,
     is_numpy_available,
     is_torch_available,
     raise_for_missing_dependency,
 )
 
-if is_numpy_available():
+if is_numpy_available() or is_jax_available():
     from dltype._lib._numpy_tensors import (
         BoolTensor as NumPyBoolTensor,
     )
