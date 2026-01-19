@@ -18,7 +18,7 @@ try:
     import torch
 
     # re-export for compatibility
-    torch_jit_unused = torch.jit.unused  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    torch_jit_unused = torch.jit.unused
 except ImportError:
     torch_jit_unused = _empty_wrapper
     torch = None
@@ -28,6 +28,11 @@ try:
     import numpy as np
 except ImportError:
     np = None
+
+try:
+    import jax
+except ImportError:
+    jax = None
 
 
 @cache
@@ -40,6 +45,12 @@ def is_torch_available() -> bool:
 def is_numpy_available() -> bool:
     """Check if the numpy library is available."""
     return np is not None
+
+
+@cache
+def is_jax_available() -> bool:
+    """Check if jax is available."""
+    return jax is not None
 
 
 @cache

@@ -10,6 +10,7 @@ from tempfile import NamedTemporaryFile
 from typing import Annotated, Final, NamedTuple, TypeAlias
 from unittest.mock import patch
 
+import jax
 import numpy as np
 import numpy.typing as npt
 import pytest
@@ -537,18 +538,22 @@ def test_onnx_export() -> None:
             f.name,
             input_names=["input"],
             output_names=["output"],
+            dynamo=False,
         )
 
         assert Path(f.name).exists()
         assert Path(f.name).stat().st_size > 0
 
-        with pytest.raises(dltype.DLTypeNDimsError):
+        with pytest.raises(
+            dltype.DLTypeNDimsError, match="Invalid number of dimensions, tensor=x expected ndims=4 actual=3"
+        ):
             torch.onnx.export(
                 _DummyModule(),
                 (torch.rand(1, 2, 3),),
                 f.name,
                 input_names=["input"],
                 output_names=["output"],
+                dynamo=False,
             )
 
 
@@ -1568,3 +1573,67 @@ def test_pass_tuple() -> None:
 
     with pytest.raises(dltype.DLTypeShapeError):
         func((torch.zeros(1, 1, 3), torch.zeros(3, 2, 1), 1))
+
+
+def test_jax() -> None:
+    @dltype.dltyped()
+    def func(
+        arr: Annotated[jax.Array, dltype.FloatTensor["1 2 3"]],
+    ) -> Annotated[jax.Array, dltype.FloatTensor["3 2 1"]]:
+        return arr.transpose(2, 1, 0)
+
+    func(jax.numpy.zeros((1, 2, 3), dtype=np.float32))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        func(jax.numpy.zeros((1, 2, 4), dtype=np.float32))
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        func(jax.numpy.zeros((1, 2, 3), dtype=np.int8))
+
+    @dltype.dltyped_dataclass()
+    @dataclass(frozen=True, slots=True)
+    class JaxDataclass:
+        arr1: Annotated[jax.Array, dltype.UInt8Tensor["*batch chann feat"]]
+        arr2: Annotated[jax.Array, dltype.Float32Tensor["*batch chann"]]
+
+    JaxDataclass(
+        arr1=jax.numpy.zeros((4, 3, 2), dtype=np.uint8),
+        arr2=jax.numpy.zeros(
+            (4, 3),
+            dtype=np.float32,
+        ),
+    )
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        JaxDataclass(
+            arr1=jax.numpy.zeros((4, 4, 2), dtype=np.uint8), arr2=jax.numpy.zeros((4, 3), dtype=np.float32)
+        )
+
+    JaxDataclass(
+        arr1=jax.numpy.zeros((8, 4, 3, 2), dtype=np.uint8), arr2=jax.numpy.zeros((8, 4, 3), dtype=np.float32)
+    )
+
+    class JaxBaseModel(BaseModel):
+        arr1: Annotated[jax.Array, dltype.FloatTensor["batch chann=3 feat"]]
+        arr2: Annotated[jax.Array, dltype.FloatTensor["batch chann=3"]]
+
+    JaxBaseModel(arr1=jax.numpy.zeros((1, 3, 2)), arr2=jax.numpy.zeros((1, 3)))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        JaxBaseModel(arr1=jax.numpy.zeros((4, 4, 2)), arr2=jax.numpy.zeros((4, 3)))
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        JaxBaseModel(arr1=jax.numpy.zeros((4, 3, 2)), arr2=jax.numpy.zeros((4, 3), dtype=np.uint8))
+
+    @dltype.dltyped_namedtuple()
+    class JaxNamedTuple(NamedTuple):
+        arr1: Annotated[jax.Array, dltype.FloatTensor["batch chann=3 feat"]]
+        arr2: Annotated[jax.Array, dltype.FloatTensor["batch chann=3"]]
+
+    JaxNamedTuple(arr1=jax.numpy.zeros((1, 3, 2)), arr2=jax.numpy.zeros((1, 3)))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        JaxNamedTuple(arr1=jax.numpy.zeros((4, 4, 2)), arr2=jax.numpy.zeros((4, 3)))
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        JaxNamedTuple(arr1=jax.numpy.zeros((4, 3, 2)), arr2=jax.numpy.zeros((4, 3), dtype=np.uint8))

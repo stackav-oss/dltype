@@ -210,7 +210,7 @@ def dltyped(  # noqa: C901, PLR0915
             return func
 
         @wraps(func)
-        @_dependency_utilities.torch_jit_unused  # pyright: ignore[reportUnknownMemberType]
+        @_dependency_utilities.torch_jit_unused
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # noqa: C901
             __tracebackhide__ = not _constants.DEBUG_MODE
             nonlocal signature
