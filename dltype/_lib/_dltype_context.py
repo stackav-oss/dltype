@@ -140,7 +140,7 @@ class DLTypeContext:
                         tensor_name=tensor_context.tensor_arg_name,
                     )
 
-                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = tensor_context.tensor.dtype  # pyright: ignore[reportUnknownMemberType] (jax doesn't parametrize the numpy dtype correctly)
+                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = tensor_context.tensor.dtype
                 expected_shape = tensor_context.get_expected_shape(
                     tensor_context.tensor,
                 )

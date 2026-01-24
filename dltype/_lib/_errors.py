@@ -1,10 +1,14 @@
 """Errors for the dltype library."""
 
+from __future__ import annotations
+
 import typing
 from abc import ABC, abstractmethod
-from collections import abc
 
 from dltype._lib._dtypes import SUPPORTED_TENSOR_TYPES, DLtypeDtypeT
+
+if typing.TYPE_CHECKING:
+    from collections import abc
 
 
 class DLTypeError(TypeError, ABC):

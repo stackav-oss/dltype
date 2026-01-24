@@ -1,8 +1,10 @@
 """Test that dltype can operate with either numpy or torch installed."""
 
+from __future__ import annotations
+
 import sys
-from collections.abc import Iterator
 from importlib import reload
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
@@ -10,6 +12,9 @@ import pytest
 import torch
 
 import dltype
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture(autouse=True)

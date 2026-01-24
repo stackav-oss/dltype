@@ -13,7 +13,10 @@ dev = [
 ]
 
 [project]
-dependencies = ["pydantic>=2.0"]
+dependencies = [
+  'pydantic>=2.0;python_version<"3.14"',
+  'pydantic>=2.12;python_version>="3.14"'
+]
 description = "An extremely lightweight typing library for torch tensors or numpy arrays. Supports runtime shape checking and data type validation."
 keywords = ["pytorch", "numpy", "shape check", "type check"]
 license = "Apache-2.0"
@@ -21,7 +24,7 @@ license-files = ["LICENSE"]
 name = "dltype"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.9.0"
+version = "0.9.1"
 
 [project.optional-dependencies]
 jax = ["jax>=0.6.2"]
@@ -45,7 +48,7 @@ addopts = "--cov=dltype --cov-report lcov:lcov.info --cov-report html"
 [tool.ruff]
 indent-width = 4
 line-length = 110
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.format]
 docstring-code-format = true
