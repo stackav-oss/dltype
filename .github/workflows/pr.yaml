@@ -18,8 +18,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.7.17
+          version: 0.9.26
           enable-cache: true
+
+      - name: Run prek
+        run: |
+          uv python install
+          uv tool run prek --all-files
 
       - name: Run ruff check
         run: |
@@ -27,7 +32,8 @@ jobs:
           uv run ruff check
 
       - name: Run default unit tests
-        run: uv run pytest
+        run: |
+          uv run pytest
 
       - name: Run type checking
         run: uv run pyright --stats
@@ -37,12 +43,16 @@ jobs:
       matrix:
         numpy_version: [==1.22.0, '']
         torch_version: [==1.11.0, '']
-        python_version: ['3.10', '3.11', '3.12', '3.13']
+        python_version: ['3.10', '3.11', '3.12', '3.13', '3.14']
         exclude:
           - numpy_version: ==1.22.0
             python_version: '3.12'
           - numpy_version: ==1.22.0
             python_version: '3.13'
+          - numpy_version: ==1.22.0
+            python_version: '3.14'
+          - torch_version: ==1.11.0
+            python_version: '3.14'
 
     runs-on: ubuntu-latest
     steps:
@@ -52,7 +62,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.7.17
+          version: 0.9.26
           python-version: ${{ matrix.python_version }}
           enable-cache: true
 

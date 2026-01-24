@@ -1,8 +1,12 @@
 """Utilities to handle optional dependencies in dltype."""
 
+from __future__ import annotations
+
 import typing
-from collections.abc import Callable
 from functools import cache
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 Ret = typing.TypeVar("Ret")
 P = typing.ParamSpec("P")

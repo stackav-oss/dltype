@@ -184,10 +184,10 @@ class TensorTypeBase:
                 tensor_name=tensor_name,
             )
 
-        if self.DTYPES and tensor.dtype not in self.DTYPES:  # pyright: ignore[reportUnknownMemberType] (jax doesn't parametrize the numpy dtype correctly)
+        if self.DTYPES and tensor.dtype not in self.DTYPES:
             raise _errors.DLTypeDtypeError(
                 expected=self.DTYPES,
-                received={tensor.dtype},  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType] (jax doesn't parametrize the numpy dtype correctly)
+                received={tensor.dtype},
                 tensor_name=tensor_name,
             )
 

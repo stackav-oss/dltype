@@ -2,6 +2,14 @@
   "[json]": {
     "editor.formatOnSave": false
   },
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file"
+  },
   "[yaml]": {
     "editor.formatOnSave": false
   },

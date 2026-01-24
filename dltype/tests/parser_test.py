@@ -77,6 +77,7 @@ def test_parse_expression(
         ("isqrt(*)", {}),
         ("dim+", {}),
         ("dim%", {}),
+        ("dim?", {}),
     ],
 )
 def test_parse_invalid_expression(expression: str, scope: dict[str, int]) -> None:

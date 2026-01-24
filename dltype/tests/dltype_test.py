@@ -1,13 +1,15 @@
 # pyright: reportPrivateUsage=false, reportUnknownMemberType=false
 """Tests for common types used in deep learning."""
 
+from __future__ import annotations
+
 import re
+import sys
 import warnings
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Annotated, Final, NamedTuple, TypeAlias
+from typing import TYPE_CHECKING, Annotated, Final, NamedTuple, TypeAlias
 from unittest.mock import patch
 
 import jax
@@ -19,6 +21,9 @@ from pydantic import BaseModel
 from torch.jit import TracerWarning  # pyright: ignore[reportPrivateImportUsage]
 
 import dltype
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 np_rand = np.random.RandomState(42).rand
 NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]
@@ -582,6 +587,10 @@ def test_torch_compile() -> None:
         warnings.simplefilter("ignore", TracerWarning)
         torch.jit.trace(_DummyModule(), torch.rand(1, 2, 3, 4))
 
+    if sys.version_info.minor >= 14:
+        # torch doesn't support script in 3.14
+        return
+
     scripted_module = torch.jit.script(_DummyModule())
 
     scripted_module(torch.rand(1, 2, 3, 4))
@@ -650,6 +659,7 @@ def test_bad_argument_name() -> None:
 def test_bad_dimension_name() -> None:
     with pytest.raises(SyntaxError):
 
+        @dltype.dltyped()
         def bad_function(  # pyright: ignore[reportUnusedFunction]
             tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b?"]],
         ) -> None:
@@ -1405,7 +1415,7 @@ def test_signed_vs_unsigned() -> None:
 
     np.testing.assert_allclose(
         signed_vs_unsigned(
-            np.array([6], dtype=np.int32),  # pyright: ignore[reportUnknownArgumentType]
+            np.array([6], dtype=np.int32),
             np.array([8], dtype=np.uint32),
         ).numpy(),
         np.array([48], dtype=np.uint8),
