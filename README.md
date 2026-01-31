@@ -279,6 +279,19 @@ def free_function(tensor: FloatTensor["batch dim1"]) -> None:
 - `BoolTensor`: For boolean tensors
 - `TensorTypeBase`: Base class for any tensor which does not enforce any specific datatype, feel free to add custom validation logic by overriding the `check` method.
 
+## Disabling checks
+
+For some scenarios such as benchmarking tight loops, it may be desirable to disable type checking.
+To do this, you may provide `enabled=False` to any @dltyped decorator.
+If you would like to disable checking for an entire project you may use the `DLTYPE_DISABLE=1` environment variable.
+
+> [!NOTE]
+The environment variable is only checked once at import time.
+
+## Debugging
+
+If you run into issues with a dltyped decorator and would like to see detailed stack traces you may turn on debug mode via the environment variable `DLTYPE_DEBUG_MODE=1`.
+
 ## Limitations
 
 - In the current implementation, _every_ call will be checked, the performance overhead on most systems should be negligible (OTOO microseconds).

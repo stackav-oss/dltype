@@ -1647,3 +1647,38 @@ def test_jax() -> None:
 
     with pytest.raises(dltype.DLTypeDtypeError):
         JaxNamedTuple(arr1=jax.numpy.zeros((4, 3, 2)), arr2=jax.numpy.zeros((4, 3), dtype=np.uint8))
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_disabling(enabled: bool) -> None:
+    @dltype.dltyped(enabled=enabled)
+    def checked(arg: Annotated[NPFloatArrayT, dltype.FloatTensor["b c h w"]]) -> None:
+        pass
+
+    @dltype.dltyped_dataclass(enabled=enabled)
+    @dataclass
+    class Checked:
+        arg: Annotated[NPFloatArrayT, dltype.FloatTensor["b c h w"]]
+
+    @dltype.dltyped_namedtuple(enabled=enabled)
+    class CheckedNT(NamedTuple):
+        arg: Annotated[NPFloatArrayT, dltype.FloatTensor["b c h w"]]
+
+    bad_arr = np.zeros((1, 2, 3), dtype=np.float32)
+    good_arr = np.zeros((1, 2, 3, 4), dtype=np.float32)
+
+    checked(good_arr)
+    Checked(arg=good_arr)
+    CheckedNT(arg=good_arr)
+
+    if enabled:
+        with pytest.raises(dltype.DLTypeNDimsError):
+            checked(bad_arr)
+        with pytest.raises(dltype.DLTypeNDimsError):
+            Checked(arg=bad_arr)
+        with pytest.raises(dltype.DLTypeNDimsError):
+            CheckedNT(arg=bad_arr)
+    else:
+        checked(bad_arr)
+        Checked(arg=bad_arr)
+        CheckedNT(arg=bad_arr)
