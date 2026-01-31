@@ -26,6 +26,11 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
+      - name: Run prek
+        run: |
+          uv python install
+          uv tool run prek --all-files --skip no-commit-to-branch
+
       - name: Run tests
         run: |
           uv run pytest

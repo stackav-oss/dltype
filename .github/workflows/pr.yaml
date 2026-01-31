@@ -24,7 +24,7 @@ jobs:
       - name: Run prek
         run: |
           uv python install
-          uv tool run prek --all-files
+          uv tool run prek --all-files --skip no-commit-to-branch
 
       - name: Run ruff check
         run: |

@@ -167,6 +167,8 @@ def _resolve_value(
 
 def dltyped(  # noqa: C901, PLR0915
     scope_provider: DLTypeScopeProvider | Literal["self"] | None = None,
+    *,
+    enabled: bool = not _constants.GLOBAL_DISABLE,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Apply type checking to the decorated function.
@@ -174,6 +176,7 @@ def dltyped(  # noqa: C901, PLR0915
     Args:
         scope_provider: An optional scope provider to use for type checking, if None, no scope provider is used, if 'self'
             is used, the first argument of the function is expected to be a DLTypeScopeProvider and the function must be a method.
+        enabled: if set to false, perform no type checking.
 
     Returns:
         A wrapper function with type checking
@@ -181,7 +184,7 @@ def dltyped(  # noqa: C901, PLR0915
     """
 
     def _inner_dltyped(func: Callable[P, R]) -> Callable[P, R]:  # noqa: C901, PLR0915
-        if _dependency_utilities.is_torch_scripting():
+        if _dependency_utilities.is_torch_scripting() or not enabled:
             # jit script doesn't support annotated type hints at all, we have no choice but to skip the type checking
             return func
 
@@ -302,9 +305,15 @@ def dltyped(  # noqa: C901, PLR0915
 NT = TypeVar("NT", bound=NamedTuple)
 
 
-def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:
+def dltyped_namedtuple(
+    *,
+    enabled: bool = not _constants.GLOBAL_DISABLE,
+) -> Callable[[type[NT]], type[NT]]:
     """
     Apply type checking to a NamedTuple class.
+
+    Args:
+        enabled: if set to false, perform no type checking.
 
     Returns:
         A modified NamedTuple class with type checking on construction
@@ -312,6 +321,9 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:
     """
 
     def _inner_dltyped_namedtuple(cls: type[NT]) -> type[NT]:
+        if not enabled:
+            return cls
+
         # NOTE: NamedTuple isn't actually a class, it's a factory function that returns a new class so we can't use issubclass here
         if not (
             isinstance(cls, type) and hasattr(cls, "_fields") and issubclass(cls, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -366,12 +378,18 @@ def dltyped_namedtuple() -> Callable[[type[NT]], type[NT]]:
 DataclassT = TypeVar("DataclassT")
 
 
-def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
+def dltyped_dataclass(
+    *,
+    enabled: bool = not _constants.GLOBAL_DISABLE,
+) -> Callable[[type[DataclassT]], type[DataclassT]]:
     """
     Apply type checking to a dataclass.
 
     This will validate all fields with DLType annotations during object construction.
     Works with both regular and frozen dataclasses.
+
+    Args:
+        enabled: if set to false, perform no type checking.
 
     Returns:
         A modified dataclass with type checking on initialization
@@ -379,7 +397,7 @@ def dltyped_dataclass() -> Callable[[type[DataclassT]], type[DataclassT]]:
     """
 
     def _inner_dltyped_dataclass(cls: type[DataclassT]) -> type[DataclassT]:
-        if _dependency_utilities.is_torch_scripting():
+        if _dependency_utilities.is_torch_scripting() or not enabled:
             return cls
 
         # check that we are a dataclass, raise an error if not
