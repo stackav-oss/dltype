@@ -2,77 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import typing
 from abc import ABC, abstractmethod
 from types import EllipsisType
 
 from typing_extensions import override
-
-
-class AxisOperationBase(ABC):
-    def __init__(
-        self,
-        lhs: OperableAxis | ComputedAxis | int,
-        rhs: OperableAxis | ComputedAxis | int,
-    ) -> None:
-        self._lhs = lhs if isinstance(lhs, OperableAxis | ComputedAxis) else LiteralAxis(lhs)
-        self._rhs = rhs if isinstance(rhs, OperableAxis | ComputedAxis) else LiteralAxis(rhs)
-
-    @abstractmethod
-    def __str__(self) -> str:
-        pass
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-
-class Add(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{self._lhs.value + self._rhs.value}"
-        return f"({self._lhs}+{self._rhs})"
-
-
-class Subtract(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{self._lhs.value - self._rhs.value}"
-        return f"({self._lhs}-{self._rhs})"
-
-
-class Divide(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{self._lhs.value // self._rhs.value}"
-        return f"({self._lhs}/{self._rhs})"
-
-
-class Multiply(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{self._lhs.value * self._rhs.value}"
-        return f"({self._lhs}*{self._rhs})"
-
-
-class Exp(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{self._lhs.value**self._rhs.value}"
-        return f"({self._lhs}^{self._rhs})"
-
-
-class Max(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{max(self._lhs.value, self._rhs.value)}"
-        return f"max({self._lhs},{self._rhs})"
-
-
-class Min(AxisOperationBase):
-    def __str__(self) -> str:
-        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
-            return f"{min(self._lhs.value, self._rhs.value)}"
-        return f"min({self._lhs},{self._rhs})"
 
 
 class OperableAxis(ABC):
@@ -124,6 +59,94 @@ class OperableAxis(ABC):
         return ComputedAxis(Exp(*self.__resolve_expr_sides(other, reverse=True)))
 
 
+class AxisOperationBase(OperableAxis, ABC):
+    @abstractmethod
+    def __init__(self) -> None:
+        pass
+
+
+class UnaryAxisOperationBase(AxisOperationBase):
+    def __init__(self, axis: Group | OperableAxis | ComputedAxis | int) -> None:
+        self._axis = axis if isinstance(axis, OperableAxis | ComputedAxis | Group) else LiteralAxis(axis)
+
+
+class ISqrt(UnaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._axis, LiteralAxis):
+            return f"{math.isqrt(self._axis.value)}"
+        return f"isqrt({self._axis})"
+
+
+class Group(UnaryAxisOperationBase):
+    def __init__(
+        self,
+        grouped_op: OperableAxis | ComputedAxis | int,
+    ) -> None:
+        self._operators = grouped_op
+
+    def __str__(self) -> str:
+        return f"({self._operators})"
+
+
+class BinaryAxisOperationBase(AxisOperationBase):
+    def __init__(
+        self,
+        lhs: Group | OperableAxis | ComputedAxis | int,
+        rhs: Group | OperableAxis | ComputedAxis | int,
+    ) -> None:
+        self._lhs = lhs if isinstance(lhs, OperableAxis | ComputedAxis | Group) else LiteralAxis(lhs)
+        self._rhs = rhs if isinstance(rhs, OperableAxis | ComputedAxis | Group) else LiteralAxis(rhs)
+
+
+class Add(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{self._lhs.value + self._rhs.value}"
+        return f"{self._lhs}+{self._rhs}"
+
+
+class Subtract(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{self._lhs.value - self._rhs.value}"
+        return f"{self._lhs}-{self._rhs}"
+
+
+class Divide(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{self._lhs.value // self._rhs.value}"
+        return f"{self._lhs}/{self._rhs}"
+
+
+class Multiply(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{self._lhs.value * self._rhs.value}"
+        return f"{self._lhs}*{self._rhs}"
+
+
+class Exp(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{self._lhs.value**self._rhs.value}"
+        return f"{self._lhs}^{self._rhs}"
+
+
+class Max(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{max(self._lhs.value, self._rhs.value)}"
+        return f"max({self._lhs},{self._rhs})"
+
+
+class Min(BinaryAxisOperationBase):
+    def __str__(self) -> str:
+        if isinstance(self._lhs, LiteralAxis) and isinstance(self._rhs, LiteralAxis):
+            return f"{min(self._lhs.value, self._rhs.value)}"
+        return f"min({self._lhs},{self._rhs})"
+
+
 class LiteralAxis(OperableAxis):
     def __init__(self, value: int) -> None:
         """Initialize an axis with a literal integer value."""
@@ -171,7 +194,7 @@ class NamedComputedAxis(ComputedAxis):
         return f"{self._identifier}={self._computation}"
 
 
-OperableAxisT: typing.TypeAlias = LiteralAxis | VariableAxis | ComputedAxis | int
+OperableAxisT: typing.TypeAlias = Group | LiteralAxis | VariableAxis | ComputedAxis | int
 
 
 class ConstantAxis:

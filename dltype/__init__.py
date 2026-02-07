@@ -29,6 +29,8 @@ from dltype._lib._errors import (
 from dltype._lib._symbolic_expressions import (
     AnonymousAxis,
     ConstantAxis,
+    Group,
+    ISqrt,
     LiteralAxis,
     Max,
     Min,
@@ -133,7 +135,9 @@ __all__ = [
     "Float32Tensor",
     "Float64Tensor",
     "FloatTensor",
+    "Group",
     "IEEE754HalfFloatTensor",
+    "ISqrt",
     "Int8Tensor",
     "Int16Tensor",
     "Int32Tensor",
