@@ -18,7 +18,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.9.26
+          version: 0.10.0
           enable-cache: true
 
       - name: Run prek
@@ -62,7 +62,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.9.26
+          version: 0.10.0
           python-version: ${{ matrix.python_version }}
           enable-cache: true
 
