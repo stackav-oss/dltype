@@ -3,7 +3,7 @@
 
 import pytest
 
-from dltype import AnonymousAxis, ConstantAxis, LiteralAxis, Max, Min, Shape, VariableAxis
+from dltype import AnonymousAxis, ConstantAxis, Group, ISqrt, LiteralAxis, Max, Min, Shape, VariableAxis
 from dltype._lib import _parser
 
 
@@ -99,21 +99,41 @@ def test_parse_invalid_expression(expression: str, scope: dict[str, int]) -> Non
             "*batch c h w",
         ),
         (Shape[LiteralAxis(4), VariableAxis("r")], "4 r"),
-        (Shape[Min(4 + VariableAxis("image_w"), VariableAxis("imageh"))], "min((4+image_w),imageh)"),
-        (Shape[VariableAxis("a") - VariableAxis("b")], "(a-b)"),
-        (Shape[VariableAxis("a") + VariableAxis("b")], "(a+b)"),
-        (Shape[VariableAxis("a") * VariableAxis("b")], "(a*b)"),
-        (Shape[VariableAxis("a") ** VariableAxis("b")], "(a^b)"),
-        (Shape[VariableAxis("a") // VariableAxis("b")], "(a/b)"),
+        (Shape[Min(4 + VariableAxis("image_w"), VariableAxis("imageh"))], "min(4+image_w,imageh)"),
+        (Shape[4 // Max(4 + VariableAxis("image_w"), VariableAxis("imageh"))], "4/max(4+image_w,imageh)"),
+        (Shape[VariableAxis("a") - VariableAxis("b")], "a-b"),
+        (Shape[VariableAxis("a") + VariableAxis("b")], "a+b"),
+        (Shape[VariableAxis("a") * VariableAxis("b")], "a*b"),
+        (Shape[VariableAxis("a") ** VariableAxis("b")], "a^b"),
+        (Shape[VariableAxis("a") // VariableAxis("b")], "a/b"),
         (Shape[LiteralAxis(99) - LiteralAxis(97)], "2"),
         (Shape[LiteralAxis(12) + LiteralAxis(1)], "13"),
         (Shape[LiteralAxis(10) * LiteralAxis(2)], "20"),
         (Shape[LiteralAxis(3) ** LiteralAxis(3)], "27"),
         (Shape[LiteralAxis(10) // LiteralAxis(2)], "5"),
-        (Shape[10 - VariableAxis("b")], "(10-b)"),
-        (Shape[10 // VariableAxis("b")], "(10/b)"),
-        (Shape[10 * VariableAxis("b")], "(10*b)"),
-        (Shape[10 ** VariableAxis("b")], "(10^b)"),
+        (Shape[10 - VariableAxis("b")], "10-b"),
+        (Shape[10 // VariableAxis("b")], "10/b"),
+        (Shape[10 * VariableAxis("b")], "10*b"),
+        (Shape[10 ** VariableAxis("b")], "10^b"),
+        (Shape[ISqrt(16)], "4"),
+        (Shape[Group(VariableAxis("a") - VariableAxis("b"))], "(a-b)"),
+        (
+            Shape[ISqrt(VariableAxis("a") - VariableAxis("b"))],
+            "isqrt(a-b)",
+        ),
+        (
+            Shape[
+                Group(VariableAxis("a") - VariableAxis("b")) // ISqrt(VariableAxis("b") - VariableAxis("c"))
+            ],
+            "(a-b)/isqrt(b-c)",
+        ),
+        (
+            Shape[
+                Group(Group(VariableAxis("a") - VariableAxis("b") ** Group(4 - VariableAxis("z"))))
+                // ISqrt(VariableAxis("b") - VariableAxis("c"))
+            ],
+            "((a-b^(4-z)))/isqrt(b-c)",
+        ),
     ],
 )
 def test_parse_symbolic(expression: Shape, expected: str) -> None:
