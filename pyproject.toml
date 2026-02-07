@@ -18,8 +18,17 @@ dependencies = [
   'pydantic>=2.12;python_version>="3.14"',
   "pydantic-settings>=2.12.0"
 ]
-description = "An extremely lightweight typing library for torch tensors or numpy arrays. Supports runtime shape checking and data type validation."
-keywords = ["pytorch", "numpy", "shape check", "type check"]
+description = "An extremely lightweight and typing library for torch tensors, jax arrays, and numpy arrays. Supports runtime shape checking and data type validation."
+keywords = [
+  "pytorch",
+  "numpy",
+  "jax",
+  "shape check",
+  "type check",
+  "typing",
+  "deep learning",
+  "torch"
+]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 name = "dltype"
