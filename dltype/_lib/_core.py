@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import inspect
 import itertools
-import logging
 import warnings
 from functools import lru_cache, wraps
 from typing import (
@@ -31,6 +30,7 @@ from dltype._lib import (
     _dltype_context,
     _dtypes,
     _errors,
+    _log_utils,
     _tensor_type_base,
 )
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-_logger: Final = logging.getLogger(__name__)
+_logger: Final = _log_utils.get_logger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")

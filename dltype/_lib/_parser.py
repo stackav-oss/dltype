@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import enum
-import logging
 import math
 import re
 import typing
 
 from typing_extensions import override
 
-_logger: typing.Final = logging.getLogger(__name__)
+from dltype._lib import _log_utils
+
+_logger: typing.Final = _log_utils.get_logger(__name__)
 
 
 class _DLTypeSpecifier(enum.Enum):

@@ -15,9 +15,7 @@ from dltype._lib import (
     _parser,
     _symbolic_expressions,
 )
-from dltype._lib import (
-    _dependency_utilities as _deps,
-)
+from dltype._lib import _dependency_utilities as _deps
 
 if typing.TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler, ValidationInfo

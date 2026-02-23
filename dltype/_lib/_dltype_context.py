@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 import time
 import warnings
 from collections import deque
 from typing import Any, Final, NamedTuple, TypeAlias, cast
 
-from dltype._lib import _constants, _dtypes, _errors, _parser, _tensor_type_base
+from dltype._lib import _constants, _dtypes, _errors, _log_utils, _parser, _tensor_type_base
 
-_logger: Final = logging.getLogger(__name__)
+_logger: Final = _log_utils.get_logger(__name__)
 
 EvaluatedDimensionT: TypeAlias = dict[str, int]
 
