@@ -1,6 +1,7 @@
 default_language_version:
   python: python3.14
 
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -38,6 +39,7 @@ repos:
         args: [--autofix, --indent, '2', --offset, '2', --line-width, '80']
       - id: pretty-format-toml
         args: [--autofix, --indent, '2']
+        exclude: uv.lock
   - repo: https://github.com/astral-sh/uv-pre-commit
       # uv version.
     rev: 0.10.0

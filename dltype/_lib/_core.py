@@ -60,7 +60,7 @@ class DLTypeAnnotation(NamedTuple):
     ) -> tuple[DLTypeAnnotation | None, ...]:
         """Create a new _DLTypeAnnotation from a type hint."""
         if hint is None:
-            warnings.warn(f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=3)
+            warnings.warn(f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4)
             return (None,)
 
         _logger.debug("Creating DLType from hint %r", hint)
@@ -85,8 +85,10 @@ class DLTypeAnnotation(NamedTuple):
         if origin is tuple:
             return tuple(itertools.chain(*[cls.from_hint(inner_hint, name) for inner_hint in args]))
 
-        # Only process Annotated types
+        # Only process Annotated types, warn if the annotated type is a tensor
         if origin is not Annotated:
+            if any(T in hint.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES) if hint else False:
+                warnings.warn(f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4)
             return (None,)
 
         # Ensure the annotation is a TensorTypeBase
@@ -94,10 +96,7 @@ class DLTypeAnnotation(NamedTuple):
             args[1],
             _tensor_type_base.TensorTypeBase,
         ):
-            _logger.warning(
-                "Invalid annotated dltype hint: %r",
-                args[1:] if len(args) >= n_expected_args else None,
-            )
+            warnings.warn(f"[{name}] has an invalid DLType hint", category=UserWarning, stacklevel=4)
             return (None,)
 
         # Ensure the base type is a supported tensor type
@@ -165,6 +164,10 @@ def _resolve_value(
     return cast("tuple[Any]", value) if len(type_hint) > 1 else (value,)
 
 
+def _get_func_lineref(func: Callable[P, R]) -> str:
+    return f"Function: {func.__name__}"
+
+
 def dltyped(  # noqa: C901, PLR0915
     scope_provider: DLTypeScopeProvider | Literal["self"] | None = None,
     *,
@@ -183,7 +186,7 @@ def dltyped(  # noqa: C901, PLR0915
 
     """
 
-    def _inner_dltyped(func: Callable[P, R]) -> Callable[P, R]:  # noqa: C901, PLR0915
+    def _inner_dltyped(func: Callable[P, R]) -> Callable[P, R]:  # noqa: C901
         if _dependency_utilities.is_torch_scripting() or not enabled:
             # jit script doesn't support annotated type hints at all, we have no choice but to skip the type checking
             return func
@@ -204,9 +207,8 @@ def dltyped(  # noqa: C901, PLR0915
 
         # if we added dltype to a method where it will have no effect, warn the user
         if dltype_hints is not None and all(all(vv is None for vv in v) for v in dltype_hints.values()):
-            _logger.warning("dltype_hints=%r", dltype_hints)
             warnings.warn(
-                "No DLType hints found, skipping type checking",
+                f"No DLType hints found for {_get_func_lineref(func)}, skipping type checking",
                 UserWarning,
                 stacklevel=2,
             )
@@ -284,12 +286,6 @@ def dltyped(  # noqa: C901, PLR0915
                         maybe_return_annotation,
                     )
                     ctx.assert_context()
-                elif any(isinstance(retval, T) for T in _dtypes.SUPPORTED_TENSOR_TYPES):
-                    warnings.warn(
-                        f"[{return_key}] is missing a DLType hint",
-                        UserWarning,
-                        stacklevel=2,
-                    )
             except _errors.DLTypeError as e:
                 # include the full function signature in the error message
                 e.set_context(f"{func.__name__}{signature}")

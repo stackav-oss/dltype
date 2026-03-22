@@ -29,6 +29,8 @@ DEBUG_MODE: typing.Final = __env.DEBUG_MODE
 MAX_ACCEPTABLE_EVALUATION_TIME_NS: typing.Final = int(5e9)  # 5ms
 GLOBAL_DISABLE: typing.Final = __env.DISABLE
 
+if DEBUG_MODE:
+    warnings.warn("DLType debug mode enabled", UserWarning, stacklevel=1)
 
 if GLOBAL_DISABLE:
     warnings.warn(
