@@ -31,15 +31,15 @@ repos:
         args: [--fix]
       - id: ruff-format
         types_or: [python, pyi]
+  - repo: https://github.com/astral-sh/uv-pre-commit
+      # uv version.
+    rev: 0.10.0
+    hooks:
+      - id: uv-lock
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
     rev: v2.16.0
     hooks:
       - id: pretty-format-yaml
         args: [--autofix, --indent, '2', --offset, '2', --line-width, '80']
       - id: pretty-format-toml
-        args: [--autofix, --indent, '2']
-  - repo: https://github.com/astral-sh/uv-pre-commit
-      # uv version.
-    rev: 0.10.0
-    hooks:
-      - id: uv-lock
+        args: [--autofix, --indent, '2', pyproject.toml]
