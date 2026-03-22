@@ -165,7 +165,7 @@ def bad_ndim_error(tensor_name: str, *, expected: int, actual: int) -> str:
             torch.ones(1, 2, 3, 4),
             incomplete_annotated_function,
             _RaisesInfo(value=torch.ones(1, 2, 3, 4)),
-            _WarnsInfo(match_text=re.escape("[return] is missing a DLType hint")),
+            None,
             id="incomplete_annotated_4D",
         ),
         pytest.param(
@@ -1064,33 +1064,38 @@ def test_dimension_name_with_underscores() -> None:
 
 
 def test_dimension_with_external_scope() -> None:
-    class Provider:
-        def get_dltype_scope(self) -> dict[str, int]:
-            return {"channels_in": 3, "channels_out": 4}
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
 
-        @dltype.dltyped(scope_provider="self")
-        def forward(
-            self,
+        class Provider:
+            def get_dltype_scope(self) -> dict[str, int]:
+                return {"channels_in": 3, "channels_out": 4}
+
+            @dltype.dltyped(scope_provider="self")
+            def forward(
+                self,
+                tensor: Annotated[
+                    torch.Tensor,
+                    dltype.FloatTensor["batch channels_in channels_out"],
+                ],
+            ) -> torch.Tensor:
+                return tensor
+
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+
+        @dltype.dltyped(scope_provider=Provider())
+        def good_function(
             tensor: Annotated[
                 torch.Tensor,
-                dltype.FloatTensor["batch channels_in channels_out"],
+                dltype.IntTensor["batch channels_in channels_out"],
             ],
         ) -> torch.Tensor:
             return tensor
 
-    @dltype.dltyped(scope_provider=Provider())
-    def good_function(
-        tensor: Annotated[
-            torch.Tensor,
-            dltype.IntTensor["batch channels_in channels_out"],
-        ],
-    ) -> torch.Tensor:
-        return tensor
-
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+    with pytest.WarningsRecorder() as rec:
         good_function(torch.ones(1, 3, 4).int())
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+    with pytest.WarningsRecorder() as rec:
         good_function(torch.ones(4, 3, 4).int())
+        assert len(rec.list) == 0
 
     with pytest.raises(dltype.DLTypeShapeError):
         good_function(torch.ones(1, 3, 5).int())
@@ -1099,10 +1104,8 @@ def test_dimension_with_external_scope() -> None:
 
     provider = Provider()
 
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
-        provider.forward(torch.ones(1, 3, 4))
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
-        provider.forward(torch.ones(4, 3, 4))
+    provider.forward(torch.ones(1, 3, 4))
+    provider.forward(torch.ones(4, 3, 4))
 
     with pytest.raises(dltype.DLTypeShapeError):
         provider.forward(torch.ones(1, 3, 5))
@@ -1114,23 +1117,23 @@ def test_optional_type_handling() -> None:
     """Test that dltyped correctly handles Optional tensor types."""
 
     # Test with a function with optional parameter
-    @dltype.dltyped()
-    def optional_tensor_func(
-        tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]] | None,
-    ) -> torch.Tensor:
-        if tensor is None:
-            return torch.zeros(1, 3, 5, 5)
-        return tensor
+    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
+
+        @dltype.dltyped()
+        def optional_tensor_func(
+            tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]] | None,
+        ) -> torch.Tensor:
+            if tensor is None:
+                return torch.zeros(1, 3, 5, 5)
+            return tensor
 
     # Should work with None
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
-        result = optional_tensor_func(None)
+    result = optional_tensor_func(None)
     assert result.shape == (1, 3, 5, 5)
 
     # Should work with correct tensor
     input_tensor = torch.rand(2, 3, 4, 4)
-    with pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")):
-        torch.testing.assert_close(optional_tensor_func(input_tensor), input_tensor)
+    torch.testing.assert_close(optional_tensor_func(input_tensor), input_tensor)
 
     # Should fail with incorrect shape
     with pytest.raises(dltype.DLTypeNDimsError):
@@ -1359,8 +1362,7 @@ def test_class_with_forward_reference() -> None:
 
 def test_warning_if_decorator_has_no_annotations_to_check() -> None:
     with pytest.warns(
-        UserWarning,
-        match="No DLType hints found, skipping type checking",
+        UserWarning, match="No DLType hints found for Function: no_annotations, skipping type checking"
     ):
 
         @dltype.dltyped()
@@ -1368,17 +1370,27 @@ def test_warning_if_decorator_has_no_annotations_to_check() -> None:
             return tensor
 
     # should warn if some tensors are untyped
-    @dltype.dltyped()
-    def some_annotations(
-        tensor: Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]],
-    ) -> torch.Tensor:
-        return tensor
 
     with pytest.warns(
         UserWarning,
         match=re.escape("[return] is missing a DLType hint"),
     ):
-        some_annotations(torch.rand(1, 2, 3))
+
+        @dltype.dltyped()
+        def some_annotations(
+            tensor: Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]],
+        ) -> torch.Tensor:
+            return tensor
+
+    some_annotations(torch.rand(1, 2, 3))
+
+    with pytest.warns(UserWarning, match=re.escape("[tensor] has an invalid DLType hint")):
+
+        @dltype.dltyped()
+        def some_annotations(
+            tensor: Annotated[torch.Tensor, 5],
+        ) -> torch.Tensor:
+            return tensor
 
 
 def test_scalar() -> None:
