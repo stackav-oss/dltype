@@ -1694,3 +1694,15 @@ def test_disabling(enabled: bool) -> None:
         checked(bad_arr)
         Checked(arg=bad_arr)
         CheckedNT(arg=bad_arr)
+
+
+def test_tuple_ellipsis() -> None:
+
+    with pytest.warns(UserWarning, match="is missing a DLType hint"):
+
+        @dltype.dltyped()
+        def tuple_function(  # pyright: ignore[reportUnusedFunction]
+            tensor: tuple[torch.Tensor, ...],
+            tensor1: tuple[Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]]],
+        ) -> None:
+            """A function that takes a tensor and returns a tensor."""
