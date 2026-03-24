@@ -6,6 +6,7 @@ import inspect
 import itertools
 import warnings
 from functools import lru_cache, wraps
+from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -51,16 +52,22 @@ class DLTypeAnnotation(NamedTuple):
     dltype_annotation: _tensor_type_base.TensorTypeBase | None
 
     @classmethod
-    def from_hint(
+    def from_hint(  # noqa: PLR0911
         cls,
-        hint: type | None,
+        hint: type | EllipsisType | None,
         name: str,
         *,
         optional: bool = False,
+        stack_offset: int = 0,
     ) -> tuple[DLTypeAnnotation | None, ...]:
         """Create a new _DLTypeAnnotation from a type hint."""
+        if isinstance(hint, EllipsisType):
+            return (None,)
+
         if hint is None:
-            warnings.warn(f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4)
+            warnings.warn(
+                f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4 + stack_offset
+            )
             return (None,)
 
         _logger.debug("Creating DLType from hint %r", hint)
@@ -83,12 +90,18 @@ class DLTypeAnnotation(NamedTuple):
 
         # tuple handling special case
         if origin is tuple:
-            return tuple(itertools.chain(*[cls.from_hint(inner_hint, name) for inner_hint in args]))
+            return tuple(
+                itertools.chain(
+                    *[cls.from_hint(inner_hint, name, stack_offset=stack_offset + 1) for inner_hint in args]
+                )
+            )
 
         # Only process Annotated types, warn if the annotated type is a tensor
         if origin is not Annotated:
             if any(T in hint.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES) if hint else False:
-                warnings.warn(f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4)
+                warnings.warn(
+                    f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4 + stack_offset
+                )
             return (None,)
 
         # Ensure the annotation is a TensorTypeBase
@@ -96,7 +109,9 @@ class DLTypeAnnotation(NamedTuple):
             args[1],
             _tensor_type_base.TensorTypeBase,
         ):
-            warnings.warn(f"[{name}] has an invalid DLType hint", category=UserWarning, stacklevel=4)
+            warnings.warn(
+                f"[{name}] has an invalid DLType hint", category=UserWarning, stacklevel=4 + stack_offset
+            )
             return (None,)
 
         # Ensure the base type is a supported tensor type
@@ -130,13 +145,14 @@ class DLTypeScopeProvider(Protocol):
 def _maybe_get_type_hints(
     existing_hints: dict[str, tuple[DLTypeAnnotation | None, ...]] | None,
     func: Callable[P, R],
+    stack_offset: int = 0,
 ) -> dict[str, tuple[DLTypeAnnotation | None, ...]] | None:
     """Get the type hints for a function, or return an empty dict if not available."""
     if existing_hints is not None:
         return existing_hints
     try:
         return {
-            name: DLTypeAnnotation.from_hint(hint, name)
+            name: DLTypeAnnotation.from_hint(hint, name, stack_offset=stack_offset)
             for name, hint in get_type_hints(func, include_extras=True).items()
         }
     except NameError:
