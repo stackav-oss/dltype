@@ -86,7 +86,7 @@ class DLTypeAnnotation(NamedTuple):
                 raise TypeError(msg)
 
             # Recursively process the non-None type with optional=True
-            return cls.from_hint(non_none_types[0], name, optional=True)
+            return cls.from_hint(non_none_types[0], name, optional=True, stack_offset=stack_offset + 1)
 
         # tuple handling special case
         if origin is tuple:
@@ -98,7 +98,11 @@ class DLTypeAnnotation(NamedTuple):
 
         # Only process Annotated types, warn if the annotated type is a tensor
         if origin is not Annotated:
-            if any(T in hint.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES) if hint else False:
+            if (
+                any(T in hint.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES)
+                if hint and hasattr(hint, "mro")
+                else False
+            ):
                 warnings.warn(
                     f"[{name}] is missing a DLType hint", category=UserWarning, stacklevel=4 + stack_offset
                 )
@@ -351,7 +355,7 @@ def dltyped_namedtuple(
         for field_name in cls._fields:
             if field_name in field_hints:
                 hint = field_hints[field_name]
-                dltype_fields[field_name] = DLTypeAnnotation.from_hint(hint, field_name)
+                dltype_fields[field_name] = DLTypeAnnotation.from_hint(hint, field_name, stack_offset=-1)
 
         # If no fields need validation, return the original class
         if not dltype_fields:
@@ -421,7 +425,10 @@ def dltyped_dataclass(
         original_init = cls.__init__
         # Get field annotations
         field_hints = get_type_hints(cls, include_extras=True)
-        dltype_hints = {name: DLTypeAnnotation.from_hint(hint, name) for name, hint in field_hints.items()}
+        dltype_hints = {
+            name: DLTypeAnnotation.from_hint(hint, name, stack_offset=-1)
+            for name, hint in field_hints.items()
+        }
 
         def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
             """A new __init__ method that validates the fields after initialization."""

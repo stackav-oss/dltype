@@ -19,6 +19,7 @@ import pytest
 import torch
 from pydantic import BaseModel
 from torch.jit import TracerWarning  # pyright: ignore[reportPrivateImportUsage]
+from typing_extensions import Self
 
 import dltype
 
@@ -1700,9 +1701,13 @@ def test_tuple_ellipsis() -> None:
 
     with pytest.warns(UserWarning, match="is missing a DLType hint"):
 
-        @dltype.dltyped()
-        def tuple_function(  # pyright: ignore[reportUnusedFunction]
-            tensor: tuple[torch.Tensor, ...],
-            tensor1: tuple[Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]]],
-        ) -> None:
-            """A function that takes a tensor and returns a tensor."""
+        class MyClass:  # pyright: ignore[reportUnusedClass]
+            @dltype.dltyped()
+            def tuple_function(
+                self,
+                tensor: tuple[torch.Tensor, ...],
+                tensor1: tuple[Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]]],
+                arg1: int,
+            ) -> Self:
+                """A function that takes a tensor and returns a tensor."""
+                return self
