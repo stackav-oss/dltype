@@ -28,6 +28,7 @@ pip3 install dltype
 ## Usage
 
 Type hints are evaluated in a context in source-code order, so any references to dimension symbols must exist before an expression is evaluated.
+Run [./examples.py](./examples.py) `uv run examples.py` to see some basic usage patterns.
 
 ## Supported syntax
 
