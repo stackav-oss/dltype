@@ -5,10 +5,10 @@ from __future__ import annotations
 import inspect
 import itertools
 import warnings
+from collections.abc import Callable
 from functools import lru_cache, wraps
 from types import EllipsisType
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     Final,
@@ -34,10 +34,6 @@ from dltype._lib import (
     _log_utils,
     _tensor_type_base,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 
 _logger: Final = _log_utils.get_logger(__name__)
 
@@ -189,7 +185,7 @@ def _get_func_lineref(func: Callable[P, R]) -> str:
 
 
 def dltyped(  # noqa: C901, PLR0915
-    scope_provider: DLTypeScopeProvider | Literal["self"] | None = None,
+    scope_provider: DLTypeScopeProvider | Literal["self"] | Callable[P, dict[str, int]] | None = None,
     *,
     enabled: bool = not _constants.GLOBAL_DISABLE,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -197,8 +193,11 @@ def dltyped(  # noqa: C901, PLR0915
     Apply type checking to the decorated function.
 
     Args:
-        scope_provider: An optional scope provider to use for type checking, if None, no scope provider is used, if 'self'
-            is used, the first argument of the function is expected to be a DLTypeScopeProvider and the function must be a method.
+        scope_provider: An optional scope provider to use for type checking
+            None (default): no scope provider is used
+            'self': the first argument of the function is expected to be a DLTypeScopeProvider and the function must be a method.
+            Callable: the callable must match the signature of the decorated function, the arguments of the function are passed
+            on each invocation to the callable and the results are returned as the scope before evaluating any dimensions.
         enabled: if set to false, perform no type checking.
 
     Returns:
@@ -206,7 +205,7 @@ def dltyped(  # noqa: C901, PLR0915
 
     """
 
-    def _inner_dltyped(func: Callable[P, R]) -> Callable[P, R]:  # noqa: C901
+    def _inner_dltyped(func: Callable[P, R]) -> Callable[P, R]:  # noqa: C901, PLR0915
         if _dependency_utilities.is_torch_scripting() or not enabled:
             # jit script doesn't support annotated type hints at all, we have no choice but to skip the type checking
             return func
@@ -270,10 +269,10 @@ def dltyped(  # noqa: C901, PLR0915
             ):
                 ctx.tensor_shape_map = scope_provider.get_dltype_scope()
                 _logger.debug("Using unbound scope provider %s", ctx.tensor_shape_map)
+            elif isinstance(scope_provider, Callable):
+                ctx.tensor_shape_map = scope_provider(*args, **kwargs)
             elif scope_provider is not None:
-                raise _errors.DLTypeScopeProviderError(
-                    bad_scope_provider=scope_provider,
-                )
+                raise _errors.DLTypeScopeProviderError(bad_scope_provider=scope_provider)
 
             for name in dltype_hints:
                 if name == return_key:

@@ -52,8 +52,11 @@ include = ["dltype"]
 reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
 
-[tool.pytest.ini_options]
-addopts = "--cov=dltype --cov-report lcov:lcov.info --cov-report html"
+[tool.pytest]
+addopts = ["--cov=dltype", "--cov-report=lcov:lcov.info", "--cov-report=html"]
+console_output_style = "count"
+markers = ["slow: mark test as slow (run last)."]
+strict = true
 
 [tool.ruff]
 indent-width = 4
