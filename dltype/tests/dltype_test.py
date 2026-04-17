@@ -213,6 +213,8 @@ def test_single_in_single_out(
 class _TestBaseModel(BaseModel, frozen=True):
     tensor: Annotated[torch.Tensor, dltype.TensorTypeBase("b c h w")]
     tensor_2: Annotated[torch.Tensor, dltype.TensorTypeBase("b c h w")]
+    arg3: int = 0
+    arg4: Annotated[torch.Tensor, dltype.FloatTensor["..."]] | None = None
 
 
 class _TestBaseModel2(BaseModel, frozen=True):
@@ -1711,3 +1713,17 @@ def test_tuple_ellipsis() -> None:
             ) -> Self:
                 """A function that takes a tensor and returns a tensor."""
                 return self
+
+
+def test_lambda_scope() -> None:
+
+    def _scope(tensor: torch.Tensor, num_cams: int) -> dict[str, int]:
+        return {"num_cams": num_cams, "batch": tensor.shape[0] // num_cams}
+
+    @dltype.dltyped(_scope)
+    def func(
+        tensor: Annotated[torch.Tensor, dltype.FloatTensor["batch*num_cams width height"]], num_cams: int
+    ) -> None:
+        assert tensor is not None
+
+    func(torch.zeros((3, 100, 100)), 3)

@@ -151,9 +151,7 @@ class TensorTypeBase:
             source_type = np.ndarray  # pyright: ignore[reportPossiblyUnboundVariable]
 
         return core_schema.with_info_after_validator_function(
-            validate_tensor,
-            schema=core_schema.is_instance_schema(source_type),
-            field_name=handler.field_name,
+            validate_tensor, schema=core_schema.is_instance_schema(source_type)
         )
 
     def check(
