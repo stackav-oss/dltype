@@ -408,6 +408,12 @@ def test_numpy_mixed(tensor: NPFloatArrayT, expected: _RaisesInfo) -> None:
             id="int_tensor_2",
         ),
         pytest.param(
+            dltype.IntTensor("b c h w"),
+            np_rand(1, 2, 3, 4),
+            _RaisesInfo(exception_type=dltype.DLTypeDtypeError),
+            id="int_tensor_3",
+        ),
+        pytest.param(
             dltype.FloatTensor("b c h w"),
             torch.rand(1, 2, 3, 4).int(),
             _RaisesInfo(exception_type=dltype.DLTypeDtypeError),
@@ -424,12 +430,6 @@ def test_numpy_mixed(tensor: NPFloatArrayT, expected: _RaisesInfo) -> None:
             np_rand(1, 2, 3, 4).astype(np.double),
             _RaisesInfo(),
             id="float_tensor_3",
-        ),
-        pytest.param(
-            dltype.IntTensor("b c h w"),
-            np_rand(1, 2, 3, 4),
-            _RaisesInfo(exception_type=dltype.DLTypeDtypeError),
-            id="int_tensor_2",
         ),
         pytest.param(
             dltype.DoubleTensor("b c h w"),
@@ -528,6 +528,7 @@ def test_literal_shapes(
         tensor_type.check(tensor)
 
 
+@pytest.mark.slow
 def test_onnx_export() -> None:
     class _DummyModule(torch.nn.Module):
         @dltype.dltyped()
@@ -565,6 +566,7 @@ def test_onnx_export() -> None:
             )
 
 
+@pytest.mark.slow
 def test_torch_compile() -> None:
     class _DummyModule(torch.nn.Module):
         @dltype.dltyped()
@@ -852,7 +854,7 @@ def func_with_anon_wildcard(
             None,
             func_with_mid_tensor_wildcard,
             _RaisesInfo(),
-            id="mid_tensor_wildcard_2",
+            id="mid_tensor_wildcard_3",
         ),
         pytest.param(
             torch.rand(1, 2),
@@ -1600,6 +1602,7 @@ def test_pass_tuple() -> None:
         func((torch.zeros(1, 1, 3), torch.zeros(3, 2, 1), 1))
 
 
+@pytest.mark.slow
 def test_jax() -> None:
     @dltype.dltyped()
     def func(
