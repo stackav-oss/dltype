@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import itertools
 import warnings
+from copy import copy
 from functools import lru_cache, wraps
 from types import EllipsisType
 from typing import (
@@ -124,6 +125,7 @@ class DLTypeAnnotation(NamedTuple):
             msg = f"Invalid base type=<{tensor_type}> in DLType hint, expected a subtype of {_dtypes.SUPPORTED_TENSOR_TYPES}"
             raise TypeError(msg)
 
+        dltype_hint = copy(dltype_hint) if optional else dltype_hint
         dltype_hint.optional = optional
         return (cls(tensor_type_hint=tensor_type, dltype_annotation=dltype_hint),)
 
