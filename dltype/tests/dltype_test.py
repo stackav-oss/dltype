@@ -1711,3 +1711,24 @@ def test_tuple_ellipsis() -> None:
             ) -> Self:
                 """A function that takes a tensor and returns a tensor."""
                 return self
+
+
+SomeTensorT: TypeAlias = Annotated[torch.Tensor, dltype.FloatTensor["1 2 3"]]
+
+
+def test_aliased_optional() -> None:
+
+    @dltype.dltyped()
+    def func(non_optional_tensor: SomeTensorT, optional_tensor: SomeTensorT | None = None) -> None:
+        pass
+
+    func(torch.zeros((1, 2, 3)))
+
+    func(torch.zeros((1, 2, 3)), None)
+
+    func(torch.zeros((1, 2, 3)), torch.zeros((1, 2, 3)))
+
+    func(torch.zeros((1, 2, 3)))
+
+    with pytest.raises(dltype.DLTypeUnsupportedTensorTypeError):
+        func(None, torch.zeros((1, 2, 3)))  # pyright: ignore[reportArgumentType]
