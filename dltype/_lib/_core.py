@@ -101,7 +101,7 @@ class DLTypeAnnotation(NamedTuple):
         if origin is not Annotated:
             if (
                 any(T in hint.mro() for T in _dtypes.SUPPORTED_TENSOR_TYPES)
-                if hint and hasattr(hint, "mro")
+                if hint and hasattr(hint, "mro") and hint is not type
                 else False
             ):
                 warnings.warn(

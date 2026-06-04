@@ -1732,3 +1732,11 @@ def test_aliased_optional() -> None:
 
     with pytest.raises(dltype.DLTypeUnsupportedTensorTypeError):
         func(None, torch.zeros((1, 2, 3)))  # pyright: ignore[reportArgumentType]
+
+
+def test_weird_type() -> None:
+    @dltype.dltyped()
+    def func(arg: type) -> None:
+        pass
+
+    func(int)
