@@ -8,7 +8,16 @@ from collections import deque
 from typing import Any, Final, NamedTuple, TypeAlias, cast
 
 from dltype._lib import _constants, _dtypes, _errors, _log_utils, _parser, _tensor_type_base
+from dltype._lib import _dependency_utilities as _deps
 
+if _deps.is_torch_available():
+    from torch.jit import TracerWarning  # pyright: ignore[reportPrivateImportUsage]
+else:
+
+    class _NullWarning(Warning):
+        pass
+
+    TracerWarning = _NullWarning
 _logger: Final = _log_utils.get_logger(__name__)
 
 EvaluatedDimensionT: TypeAlias = dict[str, int]
@@ -123,43 +132,48 @@ class DLTypeContext:
         """Considering the current context, check if all tensors match their expected types."""
         __tracebackhide__ = not _constants.DEBUG_MODE
 
-        start_t = time.perf_counter_ns()
+        with warnings.catch_warnings():
+            warnings.simplefilter(category=TracerWarning, action="ignore")
 
-        try:
-            while self._hinted_tensors:
-                tensor_context = self._hinted_tensors.popleft()
-                # first check if the tensor could possibly have the right shape
-                tensor_context.dltype_annotation.check(
-                    tensor_context.tensor,
-                    tensor_name=tensor_context.tensor_arg_name,
-                )
+            start_t = time.perf_counter_ns()
 
-                if tensor_context.tensor_arg_name in self.registered_tensor_dtypes:
-                    raise _errors.DLTypeDuplicateError(
+            try:
+                while self._hinted_tensors:
+                    tensor_context = self._hinted_tensors.popleft()
+                    # first check if the tensor could possibly have the right shape
+                    tensor_context.dltype_annotation.check(
+                        tensor_context.tensor,
                         tensor_name=tensor_context.tensor_arg_name,
                     )
 
-                self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = tensor_context.tensor.dtype
-                expected_shape = tensor_context.get_expected_shape(
-                    tensor_context.tensor,
-                )
-                self._assert_tensor_shape(
-                    tensor_context.tensor_arg_name,
-                    expected_shape,
-                    tensor_context.tensor,
-                )
+                    if tensor_context.tensor_arg_name in self.registered_tensor_dtypes:
+                        raise _errors.DLTypeDuplicateError(
+                            tensor_name=tensor_context.tensor_arg_name,
+                        )
 
-        finally:
-            end_t = time.perf_counter_ns()
-            runtime_ns = end_t - start_t
-            _logger.debug("Context evaluation took %d ns", runtime_ns)
-            if _maybe_warn_runtime(runtime_ns):
-                max_ms = _constants.MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6
-                warnings.warn(
-                    f"Type checking took longer than expected {(runtime_ns) / 1e6:.2f}ms > {max_ms:.2f}ms",
-                    UserWarning,
-                    stacklevel=2,
-                )
+                    self.registered_tensor_dtypes[tensor_context.tensor_arg_name] = (
+                        tensor_context.tensor.dtype
+                    )
+                    expected_shape = tensor_context.get_expected_shape(
+                        tensor_context.tensor,
+                    )
+                    self._assert_tensor_shape(
+                        tensor_context.tensor_arg_name,
+                        expected_shape,
+                        tensor_context.tensor,
+                    )
+
+            finally:
+                end_t = time.perf_counter_ns()
+                runtime_ns = end_t - start_t
+                _logger.debug("Context evaluation took %d ns", runtime_ns)
+                if _maybe_warn_runtime(runtime_ns):
+                    max_ms = _constants.MAX_ACCEPTABLE_EVALUATION_TIME_NS / 1e6
+                    warnings.warn(
+                        f"Type checking took longer than expected {(runtime_ns) / 1e6:.2f}ms > {max_ms:.2f}ms",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
     def _assert_tensor_shape(
         self,

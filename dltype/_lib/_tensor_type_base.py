@@ -153,7 +153,6 @@ class TensorTypeBase:
         return core_schema.with_info_after_validator_function(
             validate_tensor,
             schema=core_schema.is_instance_schema(source_type),
-            field_name=handler.field_name,
         )
 
     def check(
@@ -164,6 +163,7 @@ class TensorTypeBase:
         """Check if the tensor matches this type."""
         # Basic validation for multi-axis dimensions
         __tracebackhide__ = not _constants.DEBUG_MODE
+
         if self.multiaxis_index is not None:
             # Min required dimensions = expected shape length + extra dimensions - 1 (the multi-axis placeholder)
             min_required_dims = len(self.expected_shape) - 1
