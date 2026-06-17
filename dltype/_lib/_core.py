@@ -6,7 +6,7 @@ import inspect
 import itertools
 import warnings
 from copy import copy
-from functools import lru_cache, wraps
+from functools import wraps
 from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
@@ -39,11 +39,10 @@ from dltype._lib import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
-_logger: Final = _log_utils.get_logger(__name__)
-
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_logger: Final = _log_utils.get_logger(__name__)
 
 
 class DLTypeAnnotation(NamedTuple):
@@ -130,7 +129,6 @@ class DLTypeAnnotation(NamedTuple):
         return (cls(tensor_type_hint=tensor_type, dltype_annotation=dltype_hint),)
 
 
-@lru_cache()
 def _resolve_types(
     annotations: tuple[DLTypeAnnotation | None, ...] | None,
 ) -> tuple[_tensor_type_base.TensorTypeBase | None, ...] | None:
@@ -165,7 +163,6 @@ def _maybe_get_type_hints(
         return None
 
 
-@lru_cache()
 def _maybe_get_signature(
     existing: inspect.Signature | None,
     func: Callable[P, R],

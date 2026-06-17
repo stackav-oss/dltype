@@ -18,13 +18,15 @@ import numpy.typing as npt
 import pytest
 import torch
 from pydantic import BaseModel
-from torch.jit import TracerWarning  # pyright: ignore[reportPrivateImportUsage]
 from typing_extensions import Self
 
 import dltype
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+# turns all warnings into errors for this module
+pytestmark = pytest.mark.filterwarnings("error")
 
 np_rand = np.random.RandomState(42).rand
 NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]
@@ -58,20 +60,24 @@ def good_function(
     return tensor.permute(2, 3, 0, 1)
 
 
-@dltype.dltyped()
-def incomplete_annotated_function(
-    tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b c h w"]],
-) -> torch.Tensor:
-    """A function that takes a tensor and returns a tensor."""
-    return tensor
+with pytest.warns(UserWarning, match="missing a DLType hint"):
+
+    @dltype.dltyped()
+    def incomplete_annotated_function(
+        tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b c h w"]],
+    ) -> torch.Tensor:
+        """A function that takes a tensor and returns a tensor."""
+        return tensor
 
 
-@dltype.dltyped()
-def incomplete_return_function(
-    tensor: torch.Tensor,
-) -> Annotated[torch.Tensor, dltype.TensorTypeBase["h w b c"]]:
-    """A function that takes a tensor and returns a tensor."""
-    return tensor.permute(2, 3, 0, 1)
+with pytest.warns(UserWarning, match="missing a DLType hint"):
+
+    @dltype.dltyped()
+    def incomplete_return_function(
+        tensor: torch.Tensor,
+    ) -> Annotated[torch.Tensor, dltype.TensorTypeBase["h w b c"]]:
+        """A function that takes a tensor and returns a tensor."""
+        return tensor.permute(2, 3, 0, 1)
 
 
 @dltype.dltyped()
@@ -535,9 +541,8 @@ def test_onnx_export() -> None:
         ) -> Annotated[torch.Tensor, dltype.FloatTensor("b c h w")]:
             return torch.multiply(x, 2)
 
-    with NamedTemporaryFile() as f, warnings.catch_warnings():
+    with NamedTemporaryFile() as f, warnings.catch_warnings(record=True):
         warnings.simplefilter(category=DeprecationWarning, action="ignore")
-        warnings.simplefilter(category=TracerWarning, action="ignore")
         torch.onnx.export(
             _DummyModule(),
             (torch.rand(1, 2, 3, 4),),
@@ -563,36 +568,61 @@ def test_onnx_export() -> None:
             )
 
 
+class _DummyModule(torch.nn.Module):
+    @dltype.dltyped()
+    def forward(
+        self,
+        x: Annotated[torch.Tensor, dltype.FloatTensor("b c h w")],
+    ) -> Annotated[torch.Tensor, dltype.FloatTensor("b c h w")]:
+        return torch.multiply(x, 2)
+
+
+@dltype.dltyped_namedtuple()
+class Container(NamedTuple):
+    arg: Annotated[torch.Tensor, dltype.IntTensor[None]]
+
+
+class _DummyModuleNamedtuple(torch.nn.Module):
+    def forward(self, x: Container) -> None:
+        assert x is not None
+
+
 def test_torch_compile() -> None:
-    class _DummyModule(torch.nn.Module):
-        @dltype.dltyped()
-        def forward(
-            self,
-            x: Annotated[torch.Tensor, dltype.FloatTensor("b c h w")],
-        ) -> Annotated[torch.Tensor, dltype.FloatTensor("b c h w")]:
-            return torch.multiply(x, 2)
 
     _DummyModule().forward(torch.rand(1, 2, 3, 4))
 
     with pytest.raises(dltype.DLTypeNDimsError):
         _DummyModule().forward(torch.rand(1, 2, 3))
 
-    module = torch.compile(_DummyModule())
+    regular_mod = _DummyModule()
+    with warnings.catch_warnings():
+        warnings.simplefilter(category=DeprecationWarning, action="ignore")
+        module = torch.compile(regular_mod)
+        module2 = torch.compile(_DummyModuleNamedtuple())
 
-    module(torch.rand(1, 2, 3, 4))
+    arg = torch.rand(1, 2, 3, 4)
+    torch.testing.assert_close(module(arg), regular_mod(arg))
+
+    arg2 = Container(arg=torch.tensor(1))
+    module2(arg2)
 
     with pytest.raises(dltype.DLTypeNDimsError):
         module(torch.rand(1, 2, 3))
 
+
+def test_jit_trace() -> None:
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", TracerWarning)
+        warnings.simplefilter(category=DeprecationWarning, action="ignore")
         torch.jit.trace(_DummyModule(), torch.rand(1, 2, 3, 4))
 
-    if sys.version_info.minor >= 14:
-        # torch doesn't support script in 3.14
-        return
 
-    scripted_module = torch.jit.script(_DummyModule())
+def test_jit_script() -> None:
+    if sys.version_info.minor >= 14:
+        pytest.skip("torch doesn't support script in 3.14")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter(category=DeprecationWarning, action="ignore")
+        scripted_module = torch.jit.script(_DummyModule())
 
     scripted_module(torch.rand(1, 2, 3, 4))
 
@@ -600,17 +630,19 @@ def test_torch_compile() -> None:
         scripted_module(torch.rand(1, 2, 3))
 
 
-@dltype.dltyped()
-def mixed_func(  # noqa: PLR0913
-    tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b c h w"]],
-    array: Annotated[NPFloatArrayT, dltype.TensorTypeBase["b c h w"]],
-    number: int,
-    other_tensor: torch.Tensor,
-    other_array: NPFloatArrayT,
-    other_number: float,
-    other_annotated_tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["c c c"]],
-) -> Annotated[torch.Tensor, dltype.TensorTypeBase["h w b c"]]:
-    return tensor.permute(2, 3, 0, 1)
+with pytest.warns(UserWarning, match="missing a DLType hint"):
+
+    @dltype.dltyped()
+    def mixed_func(  # noqa: PLR0913
+        tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["b c h w"]],
+        array: Annotated[NPFloatArrayT, dltype.TensorTypeBase["b c h w"]],
+        number: int,
+        other_tensor: torch.Tensor,
+        other_array: NPFloatArrayT,
+        other_number: float,
+        other_annotated_tensor: Annotated[torch.Tensor, dltype.TensorTypeBase["c c c"]],
+    ) -> Annotated[torch.Tensor, dltype.TensorTypeBase["h w b c"]]:
+        return tensor.permute(2, 3, 0, 1)
 
 
 def test_mixed_typing() -> None:
@@ -1054,14 +1086,16 @@ def test_incompatible_tensor_type() -> None:
 
 
 def test_dimension_name_with_underscores() -> None:
-    @dltype.dltyped()
-    def good_function(  # pyright: ignore[reportUnusedFunction]
-        tensor: Annotated[
-            torch.Tensor,
-            dltype.IntTensor["batch channels_in channels_out"],
-        ],
-    ) -> torch.Tensor:
-        return tensor
+    with pytest.warns(UserWarning, match="missing a DLType hint"):
+
+        @dltype.dltyped()
+        def good_function(  # pyright: ignore[reportUnusedFunction]
+            tensor: Annotated[
+                torch.Tensor,
+                dltype.IntTensor["batch channels_in channels_out"],
+            ],
+        ) -> torch.Tensor:
+            return tensor
 
 
 def test_dimension_with_external_scope() -> None:
@@ -1092,11 +1126,11 @@ def test_dimension_with_external_scope() -> None:
         ) -> torch.Tensor:
             return tensor
 
-    with pytest.WarningsRecorder() as rec:
+    with warnings.catch_warnings(record=True):
         good_function(torch.ones(1, 3, 4).int())
-    with pytest.WarningsRecorder() as rec:
+
+    with warnings.catch_warnings(record=True):
         good_function(torch.ones(4, 3, 4).int())
-        assert len(rec.list) == 0
 
     with pytest.raises(dltype.DLTypeShapeError):
         good_function(torch.ones(1, 3, 5).int())
@@ -1236,13 +1270,16 @@ def test_annotated_dataclass() -> None:
     """Test that dltyped correctly handles Annotated dataclasses."""
 
     # Test with a function with annotated dataclass
-    @dltype.dltyped_dataclass()
-    @dataclass(frozen=True, kw_only=True, slots=True)
-    class AnnotatedDataclass:
-        tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]]
-        tensor_2: Annotated[torch.Tensor, dltype.IntTensor["b c h w"]]
-        other_thing: int
-        un_annotated_tensor: torch.Tensor
+
+    with pytest.warns(UserWarning, match="missing a DLType hint"):
+
+        @dltype.dltyped_dataclass()
+        @dataclass(frozen=True, kw_only=True, slots=True)
+        class AnnotatedDataclass:
+            tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]]
+            tensor_2: Annotated[torch.Tensor, dltype.IntTensor["b c h w"]]
+            other_thing: int
+            un_annotated_tensor: torch.Tensor
 
     AnnotatedDataclass(
         tensor=torch.rand(1, 2, 3, 4),
@@ -1362,8 +1399,12 @@ def test_class_with_forward_reference() -> None:
 
 
 def test_warning_if_decorator_has_no_annotations_to_check() -> None:
-    with pytest.warns(
-        UserWarning, match="No DLType hints found for Function: no_annotations, skipping type checking"
+    with (
+        pytest.warns(
+            UserWarning, match="No DLType hints found for Function: no_annotations, skipping type checking"
+        ),
+        pytest.warns(UserWarning, match=re.escape("[tensor] is missing a DLType hint")),
+        pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")),
     ):
 
         @dltype.dltyped()
@@ -1385,7 +1426,11 @@ def test_warning_if_decorator_has_no_annotations_to_check() -> None:
 
     some_annotations(torch.rand(1, 2, 3))
 
-    with pytest.warns(UserWarning, match=re.escape("[tensor] has an invalid DLType hint")):
+    with (
+        pytest.warns(UserWarning, match=re.escape("[tensor] has an invalid DLType hint")),
+        pytest.warns(UserWarning, match="No DLType hints"),
+        pytest.warns(UserWarning, match=re.escape("[return] is missing a DLType hint")),
+    ):
 
         @dltype.dltyped()
         def some_annotations(
@@ -1735,8 +1780,10 @@ def test_aliased_optional() -> None:
 
 
 def test_weird_type() -> None:
-    @dltype.dltyped()
-    def func(arg: type) -> None:
-        pass
+    with pytest.warns(UserWarning, match="No DLType hints"):
+
+        @dltype.dltyped()
+        def func(arg: type) -> None:
+            pass
 
     func(int)
