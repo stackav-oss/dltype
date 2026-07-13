@@ -17,6 +17,7 @@ from dltype._lib._dependency_utilities import (
 )
 from dltype._lib._dtypes import SUPPORTED_TENSOR_TYPES
 from dltype._lib._errors import (
+    DLTypeConstraintError,
     DLTypeDtypeError,
     DLTypeDuplicateError,
     DLTypeError,
@@ -121,6 +122,7 @@ __all__ = [
     "BFloat16Tensor",
     "BoolTensor",
     "ConstantAxis",
+    "DLTypeConstraintError",
     "DLTypeDtypeError",
     "DLTypeDuplicateError",
     "DLTypeError",

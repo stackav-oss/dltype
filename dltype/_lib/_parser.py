@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import math
 import re
@@ -45,16 +46,27 @@ class _DLTypeModifier(enum.Enum):
 
 
 class _DLTypeOperator(enum.Enum):
-    """An enum representing a mathematical operator for a dimension expression."""
+    """
+    An enum representing a mathematical operator for a dimension expression.
 
+    NOTE: the ordering here has to be maintained such that any operator that contains another operator appears first.
+    """
+
+    MIN = "min"
+    MAX = "max"
+    ISQRT = "isqrt"
+    EQ = "=="
+    NE = "!="
+    GE = ">="
+    LE = "<="
     ADD = "+"
     SUB = "-"
     MUL = "*"
     EXP = "^"
     DIV = "/"
-    MIN = "min"
-    MAX = "max"
-    ISQRT = "isqrt"
+    GT = ">"
+    LT = "<"
+    MOD = "%"
 
     def __repr__(self) -> str:
         return self.value
@@ -65,33 +77,58 @@ class _DLTypeOperator(enum.Enum):
             return math.isqrt(a)
         raise NotImplementedError(self)
 
-    def evaluate(self, a: int, b: int) -> int:  # noqa: PLR0911
+    def evaluate(self, a: int, b: int) -> int:  # noqa: C901, PLR0911, PLR0912
         """Evaluate the operator."""
-        if self is _DLTypeOperator.ADD:
-            return a + b
-        if self is _DLTypeOperator.SUB:
-            return a - b
-        if self is _DLTypeOperator.MUL:
-            return a * b
-        if self is _DLTypeOperator.EXP:
-            return int(a**b)
-        if self is _DLTypeOperator.DIV:
-            return a // b
-        if self is _DLTypeOperator.MIN:
-            return min(a, b)
-        if self is _DLTypeOperator.MAX:
-            return max(a, b)
+        match self:
+            case _DLTypeOperator.GT:
+                return int(a > b)
+            case _DLTypeOperator.GE:
+                return int(a >= b)
+            case _DLTypeOperator.LT:
+                return int(a < b)
+            case _DLTypeOperator.LE:
+                return int(a <= b)
+            case _DLTypeOperator.EQ:
+                return int(a == b)
+            case _DLTypeOperator.NE:
+                return int(a != b)
+            case _DLTypeOperator.ADD:
+                return a + b
+            case _DLTypeOperator.SUB:
+                return a - b
+            case _DLTypeOperator.MUL:
+                return a * b
+            case _DLTypeOperator.EXP:
+                return int(a**b)
+            case _DLTypeOperator.DIV:
+                return a // b
+            case _DLTypeOperator.MIN:
+                return min(a, b)
+            case _DLTypeOperator.MAX:
+                return max(a, b)
+            case _DLTypeOperator.MOD:
+                return a % b
+            case _DLTypeOperator.ISQRT:
+                msg = f"Invalid unary operator {self=}"
+                raise AssertionError(msg)
         raise NotImplementedError(self)
 
 
 _op_precedence: typing.Final = {
+    _DLTypeOperator.EQ: 0,
+    _DLTypeOperator.NE: 0,
     _DLTypeOperator.ADD: 1,
     _DLTypeOperator.SUB: 1,
     _DLTypeOperator.MUL: 2,
     _DLTypeOperator.DIV: 2,
+    _DLTypeOperator.MOD: 2,
     _DLTypeOperator.EXP: 3,
     _DLTypeOperator.MIN: 4,
     _DLTypeOperator.MAX: 4,
+    _DLTypeOperator.GT: 5,
+    _DLTypeOperator.GE: 5,
+    _DLTypeOperator.LT: 5,
+    _DLTypeOperator.LE: 5,
     _DLTypeOperator.ISQRT: 5,
     _DLTypeGroupToken.LPAREN: 6,
 }
@@ -100,12 +137,21 @@ _unary_functions: typing.Final = frozenset({_DLTypeOperator.ISQRT})
 _binary_functions: typing.Final = frozenset({_DLTypeOperator.MIN, _DLTypeOperator.MAX})
 _functional_operators: typing.Final = frozenset(_unary_functions.union(_binary_functions))
 _infix_operators: typing.Final = frozenset(
-    {_DLTypeOperator.ADD, _DLTypeOperator.SUB, _DLTypeOperator.MUL, _DLTypeOperator.DIV, _DLTypeOperator.EXP}
+    {
+        _DLTypeOperator.ADD,
+        _DLTypeOperator.SUB,
+        _DLTypeOperator.MUL,
+        _DLTypeOperator.DIV,
+        _DLTypeOperator.EXP,
+        _DLTypeOperator.EQ,
+        _DLTypeOperator.NE,
+        _DLTypeOperator.GT,
+        _DLTypeOperator.GE,
+        _DLTypeOperator.LT,
+        _DLTypeOperator.LE,
+        _DLTypeOperator.MOD,
+    }
 )
-_valid_operators: frozenset[str] = frozenset(
-    {op.value for op in _DLTypeOperator if op not in _functional_operators},
-)
-
 _VALID_IDENTIFIER_RX: typing.Final = re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*$")
 
 
@@ -130,6 +176,7 @@ class DLTypeDimensionExpression:
         self.is_literal = not is_multiaxis_literal and all(
             isinstance(token, int) for token in postfix_expression
         )
+
         self.is_identifier = (
             is_multiaxis_literal or is_named_multiaxis or (postfix_expression == [identifier])
         )
@@ -142,6 +189,17 @@ class DLTypeDimensionExpression:
         self.is_multiaxis_literal = is_multiaxis_literal
         self.is_anonymous = is_anonymous
         self.is_named_multiaxis = is_named_multiaxis
+
+        if (
+            not self.is_literal
+            and not self.is_anonymous
+            and not self.is_named_multiaxis
+            and not self.is_multiaxis_literal
+        ):
+            with contextlib.suppress(KeyError):
+                self.evaluate({})
+                self.is_literal = True
+
         _logger.debug(
             "Created new %s dimension expression %r", "multiaxis" if self.is_multiaxis_literal else "", self
         )
@@ -331,15 +389,6 @@ def _postfix_from_infix(identifier: str, expression: list[TokenT | str | int]) -
 TokenT: typing.TypeAlias = _DLTypeSpecifier | _DLTypeGroupToken | _DLTypeOperator
 
 
-def _span_to_tok(character: str) -> TokenT | None:
-    maybe_operator = typing.cast("_DLTypeOperator | None", _DLTypeOperator._value2member_map_.get(character))
-    maybe_specifier = typing.cast(
-        "_DLTypeSpecifier | None", _DLTypeSpecifier._value2member_map_.get(character)
-    )
-    maybe_group = typing.cast("_DLTypeGroupToken | None", _DLTypeGroupToken._value2member_map_.get(character))
-    return maybe_operator or maybe_specifier or maybe_group
-
-
 def _span_to_str_or_int(span: str) -> str | int:
     if span.isnumeric():
         return int(span)
@@ -382,27 +431,74 @@ def _assert_token_list_valid(tokenized: list[str | int | TokenT]) -> None:
         raise SyntaxError("Invalid expression syntax: " + "".join(map(repr, tokenized)))
 
 
-def _tokenize_string_expr(
+def _tokenize_string_expr(  # noqa: C901, PLR0912
     expression: str,
 ) -> list[str | int | TokenT]:
-    return_list: list[str | int | TokenT] = []
+    return_list: list[str] = []
     current_span = ""
+
+    # first pass just split by character, then we can combine repeated tokens like "==" or ">=" into a single token
     for character in expression:
         if character == " ":
             msg = "Spaces not permitted in dimension expressions"
             raise SyntaxError(msg)
 
-        if token := _span_to_tok(character):
+        return_list.append(character)
+
+    # second pass combine repeated tokens like "==" or ">=" into a single token
+    second_pass_return_list: list[str | TokenT] = [""] * len(return_list)
+    current_span = ""
+    offset = 0
+    found_operator = False
+
+    for _idx in range(len(return_list)):
+        idx = _idx + offset
+        if idx >= len(return_list):
+            second_pass_return_list = second_pass_return_list[: len(return_list) - offset]
+            break
+        character = return_list[idx]
+        found_operator = False
+        assert isinstance(character, str)
+        for op in _DLTypeOperator:
+            if tuple(expression[idx : idx + len(op.value)]) == tuple(op.value):
+                second_pass_return_list[idx - offset] = op
+                offset += len(op.value) - 1
+                found_operator = True
+                break
+        if not found_operator:
+            for spec in _DLTypeSpecifier:
+                if tuple(expression[idx : idx + len(spec.value)]) == tuple(spec.value):
+                    second_pass_return_list[idx - offset] = spec
+                    offset += len(spec.value) - 1
+                    found_operator = True
+                    break
+        if not found_operator:
+            for group in _DLTypeGroupToken:
+                if tuple(expression[idx : idx + len(group.value)]) == tuple(group.value):
+                    second_pass_return_list[idx - offset] = group
+                    offset += len(group.value) - 1
+                    found_operator = True
+                    break
+        if not found_operator:
+            second_pass_return_list[idx - offset] = character
+    second_pass_return_list = [tok for tok in second_pass_return_list if tok]
+
+    # third pass convert to tokens or strings/ints
+    final_return_list: list[str | int | TokenT] = []
+    current_span = ""
+    for token in second_pass_return_list:
+        if isinstance(token, _DLTypeOperator | _DLTypeSpecifier | _DLTypeGroupToken):
             if current_span:
-                return_list.append(_span_to_tok(current_span) or _span_to_str_or_int(current_span))
-            current_span = ""
-            return_list.append(token)
+                final_return_list.append(_span_to_str_or_int(current_span))
+                current_span = ""
+            final_return_list.append(token)
         else:
-            current_span += character
+            current_span += token
     if current_span:
-        return_list.append(_span_to_tok(current_span) or _span_to_str_or_int(current_span))
-    _assert_token_list_valid(return_list)
-    return return_list
+        final_return_list.append(_span_to_str_or_int(current_span))
+
+    _assert_token_list_valid(final_return_list)
+    return final_return_list
 
 
 def _get_group_indices(expr: list[TokenT | int | str], offset: int) -> tuple[int, list[int], int]:
@@ -447,6 +543,10 @@ def expression_from_string(expression: str) -> DLTypeDimensionExpression:
     # split the expression into the identifier and the expression if it has a specifier
     identifier = expression
     if _DLTypeSpecifier.EQUALS.value in expression:
-        identifier, expression = expression.split(_DLTypeSpecifier.EQUALS.value, maxsplit=1)
+        _identifier, _expression = expression.split(_DLTypeSpecifier.EQUALS.value, maxsplit=1)
+        if _VALID_IDENTIFIER_RX.match(_identifier) and _expression[0].isalnum():
+            # we had an assignment expression, so we can use the identifier and expression as-is
+            identifier = _identifier
+            expression = _expression
     tokenized = _tokenize_string_expr(expression)
     return _postfix_from_infix(identifier, tokenized)

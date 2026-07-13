@@ -148,3 +148,20 @@ class DLTypeScopeProviderError(DLTypeError):
 
     def __str__(self) -> str:
         return f"Invalid scope provider {self._bad_scope_provider}, expected 'self' or a DLTypeScopeProvider"
+
+
+class DLTypeConstraintError(DLTypeError):
+    """An error raised when a constraint is violated."""
+
+    def __init__(
+        self,
+        tensor_name: str | None,
+        constraint: str | None,
+        error_ctx: str | None = None,
+    ) -> None:
+        self._tensor_name = tensor_name or "?"
+        self._constraint = constraint or "?"
+        super().__init__(error_ctx=error_ctx)
+
+    def __str__(self) -> str:
+        return f"Constraint violation, tensor={self._tensor_name} constraint={self._constraint}"

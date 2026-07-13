@@ -15,7 +15,6 @@ from unittest.mock import patch
 
 import jax
 import numpy as np
-import numpy.typing as npt
 import pytest
 import torch
 from pydantic import BaseModel
@@ -30,8 +29,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.filterwarnings("error")
 
 np_rand = np.random.RandomState(42).rand
-NPFloatArrayT: TypeAlias = npt.NDArray[np.float32 | np.float64]
-NPIntArrayT: TypeAlias = npt.NDArray[np.int32 | np.uint16 | np.uint32 | np.uint8]
+NPFloatArrayT: TypeAlias = np.ndarray[tuple[int, ...], np.dtype[np.float32 | np.float64]]
+NPIntArrayT: TypeAlias = np.ndarray[tuple[int, ...], np.dtype[np.int32 | np.uint16 | np.uint32 | np.uint8]]
 
 
 class _RaisesInfo(NamedTuple):
@@ -43,6 +42,13 @@ class _RaisesInfo(NamedTuple):
 class _WarnsInfo(NamedTuple):
     match_text: str
     warning_type: type[Warning] = UserWarning
+
+
+@dltype.dltyped()
+def numpy_no_numpy_typing_function(
+    arr: Annotated[np.ndarray, dltype.IntTensor["1 2 3"]],
+) -> Annotated[np.ndarray, dltype.FloatTensor["1 2 3"]]:
+    return arr.astype(np.float32)
 
 
 @dltype.dltyped()
@@ -1341,21 +1347,21 @@ def test_improper_base_model_construction() -> None:
     with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid dtype"):
 
         class _BadModel(BaseModel):  # pyright: ignore[reportUnusedClass]
-            tensor: Annotated[npt.NDArray[np.float32], dltype.IntTensor["b c h w"]]
+            tensor: Annotated[NPFloatArrayT, dltype.IntTensor["b c h w"]]
 
     with pytest.raises(dltype.DLTypeDtypeError, match=r"Invalid dtype"):
 
         class _BadModel2(BaseModel):  # pyright: ignore[reportUnusedClass]
             tensor: Annotated[
-                npt.NDArray[np.float32 | np.float64],
+                NPFloatArrayT,
                 dltype.IntTensor["b c h w"],
             ]
 
     class _GoodModel(BaseModel):  # pyright: ignore[reportUnusedClass]
-        tensor: Annotated[npt.NDArray[np.int32], dltype.IntTensor["b c h w"]]
+        tensor: Annotated[NPIntArrayT, dltype.IntTensor["b c h w"]]
 
     class _GoodModel2(BaseModel):  # pyright: ignore[reportUnusedClass]
-        tensor: Annotated[npt.NDArray[np.int8 | np.int32], dltype.IntTensor["b c h w"]]
+        tensor: Annotated[NPIntArrayT, dltype.IntTensor["b c h w"]]
 
 
 class _MyClass:
@@ -1805,3 +1811,62 @@ def test_pickle_namedtuple() -> None:
     assert torch.allclose(unpickled_obj.tensor, obj.tensor)
     assert torch.equal(unpickled_obj.mask, obj.mask)
     assert unpickled_obj.other == obj.other
+
+
+def test_tensor_constraints() -> None:
+    @dltype.dltyped()
+    def func(
+        tensor: Annotated[
+            torch.Tensor, dltype.FloatTensor("b c h w", constraints={"b%2==0", "c>0", "h>0", "w>0"})
+        ],
+        *,
+        fail: bool = False,
+    ) -> Annotated[torch.Tensor, dltype.FloatTensor("b c h w", constraints={"b%2==0", "c>1", "h>2", "w>3"})]:
+        if fail:
+            return torch.rand(4, 1, 2, 3)
+        return tensor
+
+    func(torch.rand(2, 2, 3, 4))
+
+    with pytest.raises(dltype.DLTypeConstraintError):
+        func(torch.rand(3, 2, 3, 4))
+
+    with pytest.raises(dltype.DLTypeConstraintError):
+        func(torch.rand(2, 0, 0, 0))
+
+    with pytest.raises(dltype.DLTypeConstraintError):
+        func(torch.rand(2, 2, 3, 4), fail=True)
+
+
+@pytest.mark.parametrize(
+    "constraints",
+    [
+        {"invalid_constraint"},
+        {"b++1"},
+        {"b=1"},
+        {"c=>0"},
+        {"b%2=0"},
+        {"...==0"},
+        {"*batch==123"},
+        {"b=c"},
+        {"1==2"},
+        {"2<=1"},
+        {"1<..."},
+    ],
+)
+def test_bogus_tensor_constraints(constraints: set[str]) -> None:
+    with pytest.raises(SyntaxError):
+        dltype.FloatTensor("b c h w", constraints=constraints)
+
+
+def test_numpy_func() -> None:
+    numpy_no_numpy_typing_function(np.ones((1, 2, 3), dtype=np.int32))
+
+    with pytest.raises(dltype.DLTypeDtypeError):
+        numpy_no_numpy_typing_function(np.ones((1, 2, 3), dtype=np.float32))
+
+    with pytest.raises(dltype.DLTypeNDimsError):
+        numpy_no_numpy_typing_function(np.ones((1, 2), dtype=np.int32))
+
+    with pytest.raises(dltype.DLTypeShapeError):
+        numpy_no_numpy_typing_function(np.ones((1, 2, 4), dtype=np.int32))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import typing
 
 from pydantic_core import core_schema
@@ -51,13 +52,41 @@ class TensorTypeBase:
     DTYPES: typing.ClassVar[tuple[_dtypes.DLtypeDtypeT, ...]] = ()
     """The torch dtypes that this tensor type asserts to contain. (empty for any dtype)."""
 
-    def __init__(self, shape: str | None, *, optional: bool = False) -> None:
+    def __init__(
+        self, shape: str | None, constraints: set[str] | None = None, *, optional: bool = False
+    ) -> None:
         """Create a new tensor type object."""
         self.multiaxis_index: int | None = None
         self.anonymous_multiaxis: bool = False
         self.multiaxis_name: str | None = None
         self.optional = optional
         self.expected_shape = self._parse_shape_string(shape)
+        self.constraints = (
+            [_parser.expression_from_string(cond) for cond in sorted(constraints)] if constraints else []
+        )
+        self.axis_identifiers = tuple(dim.identifier for dim in self.expected_shape)
+        _fake_scope_eval = {axis.identifier: -1 for axis in self.expected_shape}
+        for expression in self.constraints:
+            if expression.is_literal:
+                msg = (
+                    f"Invalid constraint syntax {expression=}: constraints must be expressions, not a literal"
+                )
+                raise SyntaxError(msg)
+            if expression.is_named_multiaxis or expression.is_anonymous or expression.is_multiaxis_literal:
+                msg = f"Invalid constraint syntax {expression=}: constraints cannot be multiaxis or anonymous"
+                raise SyntaxError(msg)
+            # Attempt to evaluate the expression with an empty scope, if we get anything other than a key error the expression is invalid.
+            with contextlib.suppress(Exception):
+                expression.evaluate({})
+                msg = f"Invalid constraint syntax {expression=}: constraints must reference at least one axis identifier"
+                raise SyntaxError(msg)
+
+            try:
+                assert expression.evaluate(_fake_scope_eval) in (0, 1)
+            except Exception as e:
+                msg = f"Invalid constraint syntax {expression=}: {e}"
+                raise SyntaxError(msg) from e
+
         # only include literal dimensions that aren't multiaxis
         self._literal_dims = tuple(
             (idx, dim.evaluate({}))
@@ -155,7 +184,7 @@ class TensorTypeBase:
             schema=core_schema.is_instance_schema(source_type),
         )
 
-    def check(
+    def check(  # noqa: C901, PLR0912
         self,
         tensor: _dtypes.DLtypeTensorT,
         tensor_name: str = "anonymous",
@@ -163,6 +192,7 @@ class TensorTypeBase:
         """Check if the tensor matches this type."""
         # Basic validation for multi-axis dimensions
         __tracebackhide__ = not _constants.DEBUG_MODE
+        scope: dict[str, int] = {}
 
         if self.multiaxis_index is not None:
             # Min required dimensions = expected shape length + extra dimensions - 1 (the multi-axis placeholder)
@@ -203,3 +233,19 @@ class TensorTypeBase:
                     expected_shape=dim,
                     actual=tensor.shape[adjusted_idx],
                 )
+
+            scope[self.axis_identifiers[idx]] = tensor.shape[adjusted_idx]
+
+        if self.constraints:
+            for idx, dim in enumerate(self.expected_shape):
+                # Adjust index if multiaxis exists and is before this dimension
+                adjusted_idx = idx
+                if self.multiaxis_index is not None and idx > self.multiaxis_index:
+                    adjusted_idx += len(tensor.shape) - len(self.expected_shape)
+
+                if dim.identifier not in scope:
+                    scope[dim.identifier] = tensor.shape[adjusted_idx]
+
+            for expression in self.constraints:
+                if not expression.evaluate(scope) == 1:
+                    raise _errors.DLTypeConstraintError(tensor_name=tensor_name, constraint=str(expression))

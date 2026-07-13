@@ -1,5 +1,6 @@
 """Constants related to the dltype library."""
 
+import logging
 import typing
 import warnings
 
@@ -31,6 +32,7 @@ GLOBAL_DISABLE: typing.Final = __env.DISABLE
 
 if DEBUG_MODE:
     warnings.warn("DLType debug mode enabled", UserWarning, stacklevel=1)
+    logging.getLogger("dltype").setLevel(logging.DEBUG)
 
 if GLOBAL_DISABLE:
     warnings.warn(
