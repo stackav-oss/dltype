@@ -259,8 +259,20 @@ class MyProvider:
         }
 
 @dltyped(provider=MyProvider())
-def free_function(tensor: FloatTensor["batch dim1"]) -> None:
+def free_function(tensor: Annotated[torch.Tensor, FloatTensor["batch dim1"]]) -> None:
     # ... implementation details, dim1 provided by the external scope
+```
+
+## Providing Tensor Constraints
+
+You may need to apply additional constraints to a tensor that cannot be expressed through the regular axis scope syntax.
+
+To provide additional constraints on a tensor you may provide any number of expressions which will be evaluated during a check.
+
+```python
+# NOTE: to use constraints you must use IntTensor() not IntTensor[] as python class_getitem does not support keyword arguments.
+def func(tensor: Annotated[torch.Tensor, IntTensor("batch chan feat", constraints={"chan%6==0", "batch>=1"})]) -> None:
+    ...
 ```
 
 ## Supported Types
@@ -298,7 +310,30 @@ If you run into issues with a dltyped decorator and would like to see detailed s
 - In the current implementation, _every_ call will be checked, the performance overhead on most systems should be negligible (OTOO microseconds).
 - Pydantic default values are not checked.
 - Only symbolic, literal, and expressions are allowed for dimension specifiers, f-string syntax from `jaxtyping` is not supported.
-- Only torch tensors and numpy arrays are supported for now.
+- Only jax arrays, torch tensors and numpy arrays are supported for now.
 - Static shape checking is not supported, DLType only performs runtime checks, though some expression errors will be caught statically by construction if symbolic (i.e. non-string) shapes are used.
 - DLType does not support checkking inside unbounded container types (i.e. `list[TensorTypeBase]`) for performance reasons.
 - DLType does not support unions, but does support optionals.
+
+### A note about numpy.typing and pydantic BaseModels
+
+Starting with numpy 2.5.1 python 3.11 is deprecated which paves the way for use of the new PEP 695 type annotations.
+These annotations replace the old TypeAlias NDArray we had before with the following internal to numpy.typing:
+
+[Source](https://github.com/numpy/numpy/blame/5528ef840237704d55e06992e5c528f03a15a299/numpy/_typing/_array_like.py#L15)
+
+```
+# implementation of numpy.typing NDArray as of numpy 2.5.1
+type NDArray[ScalarT: np.generic] = np.ndarray[_AnyShape, np.dtype[ScalarT]]
+```
+
+Unfortunately for us, this means that the numpy.typing module is no longer natively compatible with pydantic model fields because `type`s defined through this syntax are not compatible with `isinstance`.
+See [PEP-695](https://peps.python.org/pep-0695/) for more information on why this is the case.
+Furthermore, we cannot add pydantic support dynamically to the type because numpy arrays are immutable classes so monkey patching `__get_pydantic_core_schema__` is not an option.
+
+Because of this limitation, we recommend using plain `np.ndarray` for numpy fields in classes.
+If you want to add static shapes to your tensors like you could with the `numpy.typing` module, you can do this directly on `np.ndarray` in newer versions of numpy.
+
+```
+array_argument: Annotated[np.ndarray[tuple[int, ...], np.dtype[np.float32 | np.float64]], dltype.FloatTensor["b c h w"]]
+```
