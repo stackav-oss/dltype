@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pickle
 import re
 import sys
 import warnings
@@ -1787,3 +1788,20 @@ def test_weird_type() -> None:
             pass
 
     func(int)
+
+
+def test_pickle_namedtuple() -> None:
+    @dltype.dltyped_namedtuple()
+    class MyNamedTuple(NamedTuple):
+        tensor: Annotated[torch.Tensor, dltype.FloatTensor["b c h w"]]
+        mask: Annotated[torch.Tensor, dltype.IntTensor["b h w"]]
+        other: int
+
+    obj = MyNamedTuple(torch.rand(2, 3, 4, 4), torch.randint(0, 2, (2, 4, 4)), 1)
+    pickled_obj = pickle.dumps(obj)
+    unpickled_obj = pickle.loads(pickled_obj)
+
+    assert isinstance(unpickled_obj, MyNamedTuple)
+    assert torch.allclose(unpickled_obj.tensor, obj.tensor)
+    assert torch.equal(unpickled_obj.mask, obj.mask)
+    assert unpickled_obj.other == obj.other

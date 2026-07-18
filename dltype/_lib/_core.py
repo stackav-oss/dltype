@@ -362,6 +362,7 @@ def dltyped_namedtuple(
 
         # Create a new __new__ method that validates on construction
         original_new = cls.__new__
+        original_module = inspect.getmodule(cls)
 
         def validated_new(cls_inner: type[NT], *args: Any, **kwargs: Any) -> NT:  # noqa: ANN401 (these actually can be any type)
             """A new __new__ method that validates the fields upon construction."""
@@ -385,7 +386,10 @@ def dltyped_namedtuple(
             return instance
 
         # Create the new class with our modified __new__ method
-        return cast("type[NT]", type(cls.__name__, (cls,), {"__new__": validated_new}))
+        new_cls = type(cls.__name__, (cls,), {"__new__": validated_new})
+        new_cls.__module__ = cls.__module__  # Preserve the original module
+        setattr(original_module, cls.__name__, new_cls)  # Update the module's reference to the new class
+        return cast("type[NT]", new_cls)
 
     return _inner_dltyped_namedtuple
 
