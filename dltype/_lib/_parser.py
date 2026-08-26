@@ -461,9 +461,14 @@ def _tokenize_string_expr(  # noqa: C901, PLR0912
         assert isinstance(character, str)
         for op in _DLTypeOperator:
             if tuple(expression[idx : idx + len(op.value)]) == tuple(op.value):
-                second_pass_return_list[idx - offset] = op
-                offset += len(op.value) - 1
-                found_operator = True
+                # we might have an operator, but if the operator is functional we need to check for a ( next
+                if (
+                    op not in _functional_operators
+                    or expression[idx + len(op.value)] == _DLTypeGroupToken.LPAREN.value
+                ):
+                    second_pass_return_list[idx - offset] = op
+                    offset += len(op.value) - 1
+                    found_operator = True
                 break
         if not found_operator:
             for spec in _DLTypeSpecifier:
