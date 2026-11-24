@@ -32,13 +32,7 @@ def is_torch_compiling() -> bool:
     """Check whether PyTorch is currently compiling a function."""
     if not is_torch_available() or torch is None:
         return False
-
-    compiler = getattr(torch, "compiler", None)
-    if compiler is None:
-        return False
-
-    is_compiling = getattr(compiler, "is_compiling", None)
-    return is_compiling() if is_compiling is not None else False
+    return torch.compiler.is_compiling()
 
 
 try:
