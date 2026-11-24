@@ -617,6 +617,58 @@ def test_torch_compile() -> None:
         module(torch.rand(1, 2, 3))
 
 
+def test_torch_compile_fullgraph_dltyped_function_and_scope_method() -> None:
+    @dltype.dltyped()
+    def square(
+        tensor: Annotated[torch.Tensor, dltype.FloatTensor["batch features"]],
+    ) -> Annotated[torch.Tensor, dltype.FloatTensor["batch features"]]:
+        return tensor.square()
+
+    class ScopedSquare(torch.nn.Module):
+        def get_dltype_scope(self) -> dict[str, int]:
+            return {"features": 3}
+
+        @dltype.dltyped("self")
+        def forward(
+            self,
+            tensor: Annotated[torch.Tensor, dltype.FloatTensor["batch features"]],
+        ) -> Annotated[torch.Tensor, dltype.FloatTensor["batch features"]]:
+            return tensor.square()
+
+    eager_module = ScopedSquare()
+    eager_tensor = torch.randn(2, 3, requires_grad=True)
+
+    # Eager execution still validates both ordinary annotations and the instance scope.
+    square(eager_tensor)
+    eager_module(eager_tensor)
+    with pytest.raises(dltype.DLTypeNDimsError):
+        square(torch.randn(2, 3, 1))
+    with pytest.raises(dltype.DLTypeShapeError):
+        eager_module(torch.randn(2, 4))
+
+    def assert_compiled_matches_eager(
+        eager_fn: Callable[[torch.Tensor], torch.Tensor],
+        compiled_fn: Callable[[torch.Tensor], torch.Tensor],
+    ) -> None:
+        eager_input = torch.randn(2, 3, requires_grad=True)
+        compiled_input = eager_input.detach().clone().requires_grad_()
+
+        eager_output = eager_fn(eager_input)
+        compiled_output = compiled_fn(compiled_input)
+        eager_gradient = torch.autograd.grad(eager_output.sum(), eager_input)[0]
+        compiled_gradient = torch.autograd.grad(compiled_output.sum(), compiled_input)[0]
+
+        torch.testing.assert_close(compiled_output, eager_output)
+        torch.testing.assert_close(compiled_gradient, eager_gradient)
+
+    # fullgraph=True makes unsupported warning or ABCMeta checks fail the test instead
+    # of silently introducing a graph break.
+    compiled_square = torch.compile(square, fullgraph=True, backend="eager")
+    compiled_module = torch.compile(eager_module, fullgraph=True, backend="eager")
+    assert_compiled_matches_eager(square, compiled_square)
+    assert_compiled_matches_eager(eager_module, compiled_module)
+
+
 def test_jit_trace() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter(category=DeprecationWarning, action="ignore")

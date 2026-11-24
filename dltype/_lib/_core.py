@@ -240,6 +240,14 @@ def dltyped(  # noqa: C901, PLR0915
             nonlocal signature
             nonlocal dltype_hints
 
+            # DLType annotations and scope providers only supply runtime validation
+            # metadata; the scope provider only seeds DLTypeContext.tensor_shape_map.
+            # Dynamo cannot trace the Python introspection, warning handling, and
+            # Protocol checks below, so trace the wrapped function itself. Eager calls
+            # still run the full validation path.
+            if _dependency_utilities.is_torch_compiling():
+                return func(*args, **kwargs)
+
             dltype_hints = _maybe_get_type_hints(dltype_hints, func)
             signature = _maybe_get_signature(signature, func)
             if signature is None or dltype_hints is None:
