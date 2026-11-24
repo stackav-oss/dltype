@@ -28,21 +28,17 @@ except ImportError:
     torch = None
 
 
-def _never_compiling() -> bool:
-    """Fallback used when torch or its compile API is unavailable."""
-    return False
+def is_torch_compiling() -> bool:
+    """Check whether PyTorch is currently compiling a function."""
+    if not is_torch_available() or torch is None:
+        return False
 
+    compiler = getattr(torch, "compiler", None)
+    if compiler is None:
+        return False
 
-is_torch_compiling: Callable[[], bool]
-
-if torch is not None:
-    try:
-        # Keep the public PyTorch helper itself so Dynamo can recognize it while tracing.
-        is_torch_compiling = torch.compiler.is_compiling
-    except AttributeError:
-        is_torch_compiling = _never_compiling
-else:
-    is_torch_compiling = _never_compiling
+    is_compiling = getattr(compiler, "is_compiling", None)
+    return is_compiling() if is_compiling is not None else False
 
 
 try:
