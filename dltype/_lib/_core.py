@@ -240,8 +240,7 @@ def dltyped(  # noqa: C901, PLR0915
             nonlocal signature
             nonlocal dltype_hints
 
-            # Annotations and scopes only drive eager validation. Skip that Python-only
-            # path during compilation and trace the wrapped function directly.
+            # Skip validation when in torch compilation, because dltype validation causes graph breaks.
             if _dependency_utilities.is_torch_compiling():
                 return func(*args, **kwargs)
 
