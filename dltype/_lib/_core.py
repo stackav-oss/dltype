@@ -370,6 +370,9 @@ def dltyped_namedtuple(
 
         def validated_new(cls_inner: type[NT], *args: Any, **kwargs: Any) -> NT:  # noqa: ANN401 (these actually can be any type)
             """A new __new__ method that validates the fields upon construction."""
+            if _dependency_utilities.is_torch_compiling():
+                return original_new(cls_inner, *args, **kwargs)
+
             # First create the instance using the original __new__
             instance = original_new(cls_inner, *args, **kwargs)
 
@@ -439,6 +442,9 @@ def dltyped_dataclass(
 
         def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
             """A new __init__ method that validates the fields after initialization."""
+            if _dependency_utilities.is_torch_compiling():
+                return original_init(self, *args, **kwargs)
+
             # First call the original __init__
             original_init(self, *args, **kwargs)
 
