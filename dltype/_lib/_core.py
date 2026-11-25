@@ -240,6 +240,10 @@ def dltyped(  # noqa: C901, PLR0915
             nonlocal signature
             nonlocal dltype_hints
 
+            # Skip validation when in torch compilation, because dltype validation causes graph breaks.
+            if _dependency_utilities.is_torch_compiling():
+                return func(*args, **kwargs)
+
             dltype_hints = _maybe_get_type_hints(dltype_hints, func)
             signature = _maybe_get_signature(signature, func)
             if signature is None or dltype_hints is None:
@@ -366,6 +370,9 @@ def dltyped_namedtuple(
 
         def validated_new(cls_inner: type[NT], *args: Any, **kwargs: Any) -> NT:  # noqa: ANN401 (these actually can be any type)
             """A new __new__ method that validates the fields upon construction."""
+            if _dependency_utilities.is_torch_compiling():
+                return original_new(cls, *args, **kwargs)
+
             # First create the instance using the original __new__
             instance = original_new(cls_inner, *args, **kwargs)
 
@@ -433,11 +440,7 @@ def dltyped_dataclass(
             for name, hint in field_hints.items()
         }
 
-        def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-            """A new __init__ method that validates the fields after initialization."""
-            # First call the original __init__
-            original_init(self, *args, **kwargs)
-
+        def validate_fields(self: DataclassT) -> None:
             # Validate fields with DLType annotations
             ctx = _dltype_context.DLTypeContext()
 
@@ -456,6 +459,15 @@ def dltyped_dataclass(
             except _errors.DLTypeError as e:
                 e.set_context(cls.__name__)
                 raise
+
+        def new_init(self: DataclassT, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+            """A new __init__ method that validates the fields after initialization."""
+            if _dependency_utilities.is_torch_compiling():
+                return original_init(self, *args, **kwargs)
+
+            # First call the original __init__
+            original_init(self, *args, **kwargs)
+            validate_fields(self)
 
         # Replace the __init__ method
         cls.__init__ = new_init

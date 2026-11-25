@@ -28,6 +28,13 @@ except ImportError:
     torch = None
 
 
+def is_torch_compiling() -> bool:
+    """Check whether PyTorch is currently compiling a function."""
+    if not is_torch_available() or torch is None:
+        return False
+    return torch.compiler.is_compiling()
+
+
 try:
     import numpy as np
 except ImportError:
