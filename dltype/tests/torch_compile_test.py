@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Annotated
+from dataclasses import dataclass
+from typing import Annotated, NamedTuple
 
 import pytest
 import torch
 
 import dltype
+
+
+@dltype.dltyped_namedtuple()
+class _TorchCompileNamedTuple(NamedTuple):
+    xyz: Annotated[torch.Tensor, dltype.FloatTensor["batch features"]]
+
+
+@dltype.dltyped_dataclass()
+@dataclass
+class _TorchCompileDataclass:
+    xyz: Annotated[torch.Tensor, dltype.FloatTensor["batch features"]]
 
 
 def _assert_compiled_matches_eager(
@@ -66,3 +78,19 @@ def test_torch_compile_fullgraph_dltyped_self_scope() -> None:
     # introducing a graph break.
     compiled_module = torch.compile(eager_module, fullgraph=True, backend="eager")
     _assert_compiled_matches_eager(eager_module, compiled_module)
+
+
+def test_torch_compile_fullgraph_dltyped_namedtuple() -> None:
+    def scale(tensor: torch.Tensor) -> torch.Tensor:
+        return _TorchCompileNamedTuple(xyz=tensor).xyz * 2
+
+    compiled_scale = torch.compile(scale, fullgraph=True, backend="eager")
+    _assert_compiled_matches_eager(scale, compiled_scale)
+
+
+def test_torch_compile_fullgraph_dltyped_dataclass() -> None:
+    def scale(tensor: torch.Tensor) -> torch.Tensor:
+        return _TorchCompileDataclass(xyz=tensor).xyz * 2
+
+    compiled_scale = torch.compile(scale, fullgraph=True, backend="eager")
+    _assert_compiled_matches_eager(scale, compiled_scale)
